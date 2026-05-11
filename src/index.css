@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+/* ── Brand color ────────────────────────────────────────────── */
+@theme {
+  --color-brand-300: #ff6666;
+  --color-brand-400: #ff3333;
+  --color-brand-500: #ff0000;
+  --color-brand-600: #cc0000;
+}
+
+/* ── Design tokens ─────────────────────────────────────────── */
+:root {
+  /* Dark theme (default) — neutral grays */
+  --bg:           #191919;
+  --bg-dark:      #111111;
+  --surface:      #212121;
+  --surface-h:    #282828;
+  --surface-2:    #2e2e2e;
+  --surface-2h:   #363636;
+  --border:       #3a3a3a;
+  --border-s:     #282828;
+  --border-h:     #4a4a4a;
+  --text-1:       #e8eaf0;
+  --text-2:       #9ca3af;
+  --text-3:       #6b7280;
+  --text-4:       #4b5563;
+  --scrollbar-track: #1e1e1e;
+  --scrollbar-thumb: #3a3a3a;
+}
+
+[data-theme="light"] {
+  --bg:           #f0f2f8;
+  --bg-dark:      #e4e8f2;
+  --surface:      #ffffff;
+  --surface-h:    #f8f9fd;
+  --surface-2:    #f0f2f8;
+  --surface-2h:   #e8eaf0;
+  --border:       #dde1f0;
+  --border-s:     #e8eaf0;
+  --border-h:     #c8cee6;
+  --text-1:       #111827;
+  --text-2:       #374151;
+  --text-3:       #6b7280;
+  --text-4:       #9ca3af;
+  --scrollbar-track: #e8eaf0;
+  --scrollbar-thumb: #c8cee6;
+}
+
+/* ── Base ───────────────────────────────────────────────────── */
+@layer base {
+  * { box-sizing: border-box; }
+
+  html, body { height: 100%; }
+
+  body {
+    margin: 0;
+    background-color: var(--bg);
+    color: var(--text-1);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    font-size: 14px;
+    transition: background-color 0.15s, color 0.15s;
+  }
+
+  #root {
+    width: 100%;
+    min-height: 100vh;
+  }
+
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+  ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--border-h); }
+
+  input, textarea, select { outline: none; }
+
+  /* ── Light-mode overrides for Tailwind text-gray classes ─── */
+  [data-theme="light"] .text-gray-100 { color: #111827 !important; }
+  [data-theme="light"] .text-gray-200 { color: #1f2937 !important; }
+  [data-theme="light"] .text-gray-300 { color: #374151 !important; }
+  [data-theme="light"] .text-gray-400 { color: #4b5563 !important; }
+  [data-theme="light"] .text-gray-500 { color: #6b7280 !important; }
+  [data-theme="light"] .text-gray-600 { color: #9ca3af !important; }
+  [data-theme="light"] .placeholder\:text-gray-600::placeholder { color: #9ca3af !important; }
+}
