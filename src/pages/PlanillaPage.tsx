@@ -469,7 +469,7 @@ export function PlanillaPage() {
     setExportando(true)
     try {
       const blob = await pdf(
-        <PlanillaPDF planilla={currentPlanilla} evento={evento} cliente={cliente} responsable={responsable} rendersPerPage={rendersPerPage} logoUrl={`${window.location.origin}/logo1.png`} />
+        <PlanillaPDF planilla={currentPlanilla} evento={evento} cliente={cliente} responsable={responsable} rendersPerPage={rendersPerPage} logoUrl={`${window.location.origin}${import.meta.env.BASE_URL}logo1.png`} />
       ).toBlob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -717,7 +717,7 @@ export function PlanillaPage() {
             </div>
           </div>
           <PDFViewer style={{ flex: 1, border: 'none' }}>
-            <PlanillaPDF planilla={currentPlanilla} evento={evento} cliente={cliente} responsable={responsable} rendersPerPage={rendersPerPage} logoUrl={`${window.location.origin}/logo1.png`} />
+            <PlanillaPDF planilla={currentPlanilla} evento={evento} cliente={cliente} responsable={responsable} rendersPerPage={rendersPerPage} logoUrl={`${window.location.origin}${import.meta.env.BASE_URL}logo1.png`} />
           </PDFViewer>
         </div>
       )}

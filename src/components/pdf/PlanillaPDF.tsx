@@ -227,49 +227,33 @@ export function PlanillaPDF({ planilla, evento, cliente, responsable, rendersPer
     )
   }
 
-  // ── Helper: render a single render image with markers ──────────────────────
-  const RenderBlock = ({ render, colWidth }: { render: typeof planilla.renders[0]; colWidth: number }) => {
-    const imgH = colWidth * (render.natH / render.natW)
-    const markerR = rendersPerPage === 2 ? 9 : MARKER_R  // smaller markers in 2-up mode
+  // ── Helpers: legend and markers (plain functions, not components) ──────────
 
-    return (
-      <View style={{ position: 'relative' }}>
-        <Image src={render.imagen} style={{ width: colWidth, height: imgH }} />
-        {render.marcadores.map(m => {
-          const pieza = piezas.find(p => p.id === m.piezaId)
-          if (!pieza) return null
-          return (
-            <View
-              key={m.id}
-              style={[
-                S.markerCircle,
-                {
-                  width: markerR * 2,
-                  height: markerR * 2,
-                  borderRadius: markerR,
-                  left: colWidth * (m.x / 100) - markerR,
-                  top: imgH * (m.y / 100) - markerR,
-                  backgroundColor: TIPO_COLOR_HEX[pieza.tipo],
-                  borderWidth: 2,
-                  borderColor: '#ffffff',
-                  borderStyle: 'solid',
-                },
-              ]}
-            >
-              <Text style={[S.markerText, { fontSize: rendersPerPage === 2 ? 5.5 : 6.5 }]}>{pieza.label}</Text>
-            </View>
-          )
-        })}
-      </View>
-    )
-  }
+  // Max image height to prevent overflow — A4 usable height minus header/footer/chrome
+  const MAX_IMG_H_1UP = 590
+  const MAX_IMG_H_2UP = 560
 
-  // ── Helper: legend for a render ────────────────────────────────────────────
-  const RenderLegend = ({ render, compact = false }: { render: typeof planilla.renders[0]; compact?: boolean }) => {
+  const renderMarkers = (render: typeof planilla.renders[0], colWidth: number, imgH: number, markerR: number) =>
+    render.marcadores.map(m => {
+      const pieza = piezas.find(p => p.id === m.piezaId)
+      if (!pieza) return null
+      return (
+        <View key={m.id} style={[S.markerCircle, {
+          width: markerR * 2, height: markerR * 2, borderRadius: markerR,
+          left: colWidth * (m.x / 100) - markerR,
+          top: imgH * (m.y / 100) - markerR,
+          backgroundColor: TIPO_COLOR_HEX[pieza.tipo],
+          borderWidth: 2, borderColor: '#ffffff', borderStyle: 'solid',
+        }]}>
+          <Text style={[S.markerText, { fontSize: markerR < MARKER_R ? 5.5 : 6.5 }]}>{pieza.label}</Text>
+        </View>
+      )
+    })
+
+  const renderLegend = (render: typeof planilla.renders[0], compact = false) => {
     if (render.marcadores.length === 0) return null
     const piezasEnRender = [...new Set(render.marcadores.map(m => m.piezaId))]
       .map(id => piezas.find(p => p.id === id)).filter(Boolean) as typeof piezas
-
     if (compact) {
       return (
         <View style={S.colLegendRow}>
@@ -282,7 +266,6 @@ export function PlanillaPDF({ planilla, evento, cliente, responsable, rendersPer
         </View>
       )
     }
-
     return (
       <View style={S.legendRow}>
         {piezasEnRender.map(p => (
@@ -295,60 +278,60 @@ export function PlanillaPDF({ planilla, evento, cliente, responsable, rendersPer
     )
   }
 
-  // ── 1 render per page layout ───────────────────────────────────────────────
-  const SinglePerPagePages = () => (
-    <>
-      {planilla.renders.map((render) => (
-        <Page key={render.id} size="A4" style={S.page}>
-          <HeaderInfo />
-          <View style={S.sectionBar}>
-            <Text style={S.sectionTitle}>{render.nombre}</Text>
-          </View>
-          <View style={[S.content, { paddingTop: 8 }]}>
-            <RenderBlock render={render} colWidth={CW} />
-          </View>
-          <RenderLegend render={render} />
-          <Footer />
-        </Page>
-      ))}
-    </>
-  )
-
-  // ── 2 renders per page layout ──────────────────────────────────────────────
-  const TwoPerPagePages = () => {
-    // group renders in pairs
-    const pairs: (typeof planilla.renders)[] = []
-    for (let i = 0; i < planilla.renders.length; i += 2) {
-      pairs.push(planilla.renders.slice(i, i + 2))
-    }
-
-    return (
-      <>
-        {pairs.map((pair, pi) => (
-          <Page key={pi} size="A4" style={S.page}>
-            <HeaderInfo />
-            <View style={S.twoColRow}>
-              {pair.map((render) => (
-                <View key={render.id} style={S.twoColItem}>
-                  <Text style={S.twoColTitle}>{render.nombre}</Text>
-                  <RenderBlock render={render} colWidth={COL_W} />
-                  <RenderLegend render={render} compact />
-                </View>
-              ))}
-              {/* If odd number of renders in last pair, empty spacer */}
-              {pair.length === 1 && <View style={S.twoColItem} />}
-            </View>
-            <Footer />
-          </Page>
-        ))}
-      </>
-    )
+  // ── Pre-compute pairs for 2-up mode ────────────────────────────────────────
+  const renderPairs: (typeof planilla.renders)[] = []
+  for (let i = 0; i < planilla.renders.length; i += 2) {
+    renderPairs.push(planilla.renders.slice(i, i + 2))
   }
 
   return (
     <Document>
-      {/* ── Render pages ── */}
-      {rendersPerPage === 2 ? <TwoPerPagePages /> : <SinglePerPagePages />}
+      {/* ── Render pages — inlined directly (no fragment wrappers) ── */}
+      {rendersPerPage === 1
+        ? planilla.renders.map(render => {
+            const rawH = CW * (render.natH / render.natW)
+            const imgH = Math.min(rawH, MAX_IMG_H_1UP)
+            return (
+              <Page key={render.id} size="A4" style={S.page}>
+                <HeaderInfo />
+                <View style={S.sectionBar}>
+                  <Text style={S.sectionTitle}>{render.nombre}</Text>
+                </View>
+                <View style={[S.content, { paddingTop: 8 }]}>
+                  <View style={{ position: 'relative' }}>
+                    <Image src={render.imagen} style={{ width: CW, height: imgH }} />
+                    {renderMarkers(render, CW, imgH, MARKER_R)}
+                  </View>
+                </View>
+                {renderLegend(render)}
+                <Footer />
+              </Page>
+            )
+          })
+        : renderPairs.map((pair, pi) => (
+            <Page key={pi} size="A4" style={S.page}>
+              <HeaderInfo />
+              <View style={S.twoColRow}>
+                {pair.map(render => {
+                  const rawH = COL_W * (render.natH / render.natW)
+                  const imgH = Math.min(rawH, MAX_IMG_H_2UP)
+                  return (
+                    <View key={render.id} style={S.twoColItem}>
+                      <Text style={S.twoColTitle}>{render.nombre}</Text>
+                      <View style={{ position: 'relative' }}>
+                        <Image src={render.imagen} style={{ width: COL_W, height: imgH }} />
+                        {renderMarkers(render, COL_W, imgH, 9)}
+                      </View>
+                      {renderLegend(render, true)}
+                    </View>
+                  )
+                })}
+                {pair.length === 1 && <View style={S.twoColItem} />}
+              </View>
+              <Footer />
+            </Page>
+          ))
+      }
 
       {/* ── Piece detail page ── */}
       {piezas.length > 0 && (

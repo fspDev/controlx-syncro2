@@ -24,7 +24,9 @@ export function Sidebar() {
   const { sidebarOpen, setSidebarOpen, currentUser, logout, theme, setTheme } = useAppStore()
 
   const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-  const logoSrc = isDark ? '/logo1.png' : '/logo2.png'
+  const logoSrc = isDark
+    ? `${import.meta.env.BASE_URL}logo1.png`
+    : `${import.meta.env.BASE_URL}logo2.png`
 
   return (
     <aside className={cn(
