@@ -10,22 +10,22 @@
 
 /* ── Design tokens ─────────────────────────────────────────── */
 :root {
-  /* Dark theme (default) — neutral grays */
-  --bg:           #191919;
-  --bg-dark:      #111111;
-  --surface:      #212121;
-  --surface-h:    #282828;
-  --surface-2:    #2e2e2e;
-  --surface-2h:   #363636;
-  --border:       #3a3a3a;
-  --border-s:     #282828;
-  --border-h:     #4a4a4a;
-  --text-1:       #e8eaf0;
-  --text-2:       #9ca3af;
-  --text-3:       #6b7280;
-  --text-4:       #4b5563;
-  --scrollbar-track: #1e1e1e;
-  --scrollbar-thumb: #3a3a3a;
+  /* Dark theme (default) — 70% gray base */
+  --bg:           #484848;
+  --bg-dark:      #3c3c3c;
+  --surface:      #535353;
+  --surface-h:    #5c5c5c;
+  --surface-2:    #626262;
+  --surface-2h:   #6c6c6c;
+  --border:       #787878;
+  --border-s:     #5e5e5e;
+  --border-h:     #888888;
+  --text-1:       #f5f5f5;
+  --text-2:       #d4d4d4;
+  --text-3:       #a8a8a8;
+  --text-4:       #808080;
+  --scrollbar-track: #404040;
+  --scrollbar-thumb: #6a6a6a;
 }
 
 [data-theme="light"] {
@@ -73,6 +73,12 @@
   ::-webkit-scrollbar-thumb:hover { background: var(--border-h); }
 
   input, textarea, select { outline: none; }
+
+  /* ── Dark-mode overrides — lift low-contrast grays for medium gray bg ─── */
+  :root .text-gray-400,
+  :root .text-gray-500  { color: #c8c8c8 !important; }
+  :root .text-gray-600  { color: #b8b8b8 !important; }
+  :root .placeholder\:text-gray-600::placeholder { color: #b0b0b0 !important; }
 
   /* ── Light-mode overrides for Tailwind text-gray classes ─── */
   [data-theme="light"] .text-gray-100 { color: #111827 !important; }
