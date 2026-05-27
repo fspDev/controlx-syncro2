@@ -78,6 +78,7 @@ export interface Marcador {
   piezaId: string
   x: number   // 0–100 % of render width
   y: number   // 0–100 % of render height
+  sizeIndex?: number  // 0=default, 1=sm, 2=xs, 3=xl  (cycles on click)
 }
 
 export interface PlanillaRender {

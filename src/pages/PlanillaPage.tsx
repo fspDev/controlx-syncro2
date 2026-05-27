@@ -8,6 +8,15 @@ import type { TipoPieza, Pieza, PlanillaRender } from '@/types'
 import { TIPO_LABEL, TIPO_PREFIX, TIPO_COLOR_HEX, SUBTIPOS } from '@/types'
 import { ArrowLeft, Plus, Trash2, Upload, ImagePlus, FileDown, Edit2, X, ChevronRight, Eye, RefreshCw, Clipboard } from 'lucide-react'
 
+// ─── Marker size config ───────────────────────────────────────────────────────
+// 4 sizes that cycle on each click: default → small → xsmall → large → default
+const MARKER_SIZES = [
+  { cls: 'w-11 h-11 text-[12px]', label: 'default' },
+  { cls: 'w-7  h-7  text-[10px]', label: 'sm' },
+  { cls: 'w-5  h-5  text-[8px]',  label: 'xs' },
+  { cls: 'w-16 h-16 text-[15px]', label: 'xl' },
+]
+
 // ─── LabelBadge ──────────────────────────────────────────────────────────────
 
 function LabelBadge({ label, tipo, size = 'md' }: { label: string; tipo: TipoPieza; size?: 'sm' | 'md' | 'lg' }) {
@@ -190,11 +199,12 @@ function EditPiezaModal({ pieza, onSave, onClose }: {
 // ─── RenderCanvas ─────────────────────────────────────────────────────────────
 // FIX: image in normal flow so the container has real height → markers are visible
 
-function RenderCanvas({ render, piezas, onCanvasClick, onMarcadorMove, onMarcadorDelete, onSelectPieza, activePiezaId }: {
+function RenderCanvas({ render, piezas, onCanvasClick, onMarcadorMove, onMarcadorDelete, onMarcadorResize, onSelectPieza, activePiezaId }: {
   render: PlanillaRender; piezas: Pieza[]
   onCanvasClick: (x: number, y: number) => void
   onMarcadorMove: (id: string, x: number, y: number) => void
   onMarcadorDelete: (id: string) => void
+  onMarcadorResize: (id: string, nextSizeIndex: number) => void
   onSelectPieza: (piezaId: string) => void
   activePiezaId: string | null
 }) {
@@ -236,16 +246,25 @@ function RenderCanvas({ render, piezas, onCanvasClick, onMarcadorMove, onMarcado
         const pieza = piezas.find(p => p.id === m.piezaId)
         if (!pieza) return null
         const isActive = activePiezaId === m.piezaId
+        const sizeIdx = m.sizeIndex ?? 0
+        const { cls: sizeCls } = MARKER_SIZES[sizeIdx]
         return (
           <div
             key={m.id}
             className="group absolute"
             style={{ left: `${m.x}%`, top: `${m.y}%`, transform: 'translate(-50%, -50%)', zIndex: isActive ? 10 : 5 }}
             onMouseDown={e => { e.stopPropagation(); draggingId.current = m.id; hasMoved.current = false }}
-            onClick={e => { e.stopPropagation(); if (!hasMoved.current) onSelectPieza(m.piezaId) }}
+            onClick={e => {
+              e.stopPropagation()
+              if (hasMoved.current) return
+              // Cycle size on click; also select this pieza
+              const next = (sizeIdx + 1) % MARKER_SIZES.length
+              onMarcadorResize(m.id, next)
+              onSelectPieza(m.piezaId)
+            }}
           >
             <div
-              className={`w-11 h-11 rounded-full flex items-center justify-center text-[12px] font-bold text-white cursor-grab active:cursor-grabbing shadow-lg border-2 border-white transition-transform ${isActive ? 'scale-125' : 'hover:scale-110'}`}
+              className={`${sizeCls} rounded-full flex items-center justify-center font-bold text-white cursor-pointer shadow-lg border-2 border-white transition-all duration-150 ${isActive ? 'ring-2 ring-white/60' : 'hover:brightness-110'}`}
               style={{ backgroundColor: TIPO_COLOR_HEX[pieza.tipo] }}
             >
               {pieza.label}
@@ -371,7 +390,7 @@ export function PlanillaPage() {
   const { eventos, clientes, usuarios, planillas,
     getOrCreatePlanilla, addRenderToPlanilla, removeRender,
     addPieza, updatePieza, removePieza,
-    addMarcador, updateMarcador, removeMarcador,
+    addMarcador, updateMarcador, sizeMarcador, removeMarcador,
   } = useAppStore()
 
   const evento = eventos.find(e => e.id === eventoId)
@@ -611,6 +630,7 @@ export function PlanillaPage() {
                   onCanvasClick={(x, y) => setPendingPos({ x, y })}
                   onMarcadorMove={(mid, x, y) => currentPlanilla && updateMarcador(currentPlanilla.id, activeRender.id, mid, x, y)}
                   onMarcadorDelete={mid => currentPlanilla && removeMarcador(currentPlanilla.id, activeRender.id, mid)}
+                  onMarcadorResize={(mid, nextIdx) => currentPlanilla && sizeMarcador(currentPlanilla.id, activeRender.id, mid, nextIdx)}
                   onSelectPieza={setActivePiezaId}
                   activePiezaId={activePiezaId}
                 />

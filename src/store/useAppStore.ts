@@ -119,6 +119,7 @@ interface AppState {
   removePieza: (planillaId: string, piezaId: string) => void
   addMarcador: (planillaId: string, renderId: string, piezaId: string, x: number, y: number) => string
   updateMarcador: (planillaId: string, renderId: string, marcadorId: string, x: number, y: number) => void
+  sizeMarcador: (planillaId: string, renderId: string, marcadorId: string, sizeIndex: number) => void
   removeMarcador: (planillaId: string, renderId: string, marcadorId: string) => void
 
   // UI
@@ -307,6 +308,16 @@ export const useAppStore = create<AppState>()(
               ...p,
               renders: p.renders.map(r => r.id === renderId
                 ? { ...r, marcadores: r.marcadores.map(m => m.id === marcadorId ? { ...m, x, y } : m) }
+                : r),
+            }
+          : p)
+      })),
+      sizeMarcador: (planillaId, renderId, marcadorId, sizeIndex) => set(s => ({
+        planillas: s.planillas.map(p => p.id === planillaId
+          ? {
+              ...p,
+              renders: p.renders.map(r => r.id === renderId
+                ? { ...r, marcadores: r.marcadores.map(m => m.id === marcadorId ? { ...m, sizeIndex } : m) }
                 : r),
             }
           : p)

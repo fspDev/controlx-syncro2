@@ -233,19 +233,23 @@ export function PlanillaPDF({ planilla, evento, cliente, responsable, rendersPer
   const MAX_IMG_H_1UP = 590
   const MAX_IMG_H_2UP = 560
 
-  const renderMarkers = (render: typeof planilla.renders[0], colWidth: number, imgH: number, markerR: number) =>
+  // Radius multipliers per sizeIndex: 0=normal · 1=small · 2=xsmall · 3=large
+  const SIZE_RADII = [1, 0.6, 0.42, 1.35]
+
+  const renderMarkers = (render: typeof planilla.renders[0], colWidth: number, imgH: number, baseR: number) =>
     render.marcadores.map(m => {
       const pieza = piezas.find(p => p.id === m.piezaId)
       if (!pieza) return null
+      const r = Math.round(baseR * (SIZE_RADII[m.sizeIndex ?? 0] ?? 1))
       return (
         <View key={m.id} style={[S.markerCircle, {
-          width: markerR * 2, height: markerR * 2, borderRadius: markerR,
-          left: colWidth * (m.x / 100) - markerR,
-          top: imgH * (m.y / 100) - markerR,
+          width: r * 2, height: r * 2, borderRadius: r,
+          left: colWidth * (m.x / 100) - r,
+          top: imgH * (m.y / 100) - r,
           backgroundColor: TIPO_COLOR_HEX[pieza.tipo],
-          borderWidth: 2, borderColor: '#ffffff', borderStyle: 'solid',
+          borderWidth: 1.5, borderColor: '#ffffff', borderStyle: 'solid',
         }]}>
-          <Text style={[S.markerText, { fontSize: markerR < MARKER_R ? 5.5 : 6.5 }]}>{pieza.label}</Text>
+          <Text style={[S.markerText, { fontSize: Math.max(4, r * 0.55) }]}>{pieza.label}</Text>
         </View>
       )
     })
