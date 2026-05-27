@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAppStore } from '@/store/useAppStore'
-import { Lock, Mail, Sun, Moon, Monitor } from 'lucide-react'
+import { Lock, User, Sun, Moon, Monitor } from 'lucide-react'
 
 const THEME_OPTS = [
   { value: 'dark' as const,   icon: Moon,    label: 'Oscuro' },
@@ -14,7 +14,7 @@ function firebaseErrorMessage(code: string): string {
     case 'auth/user-not-found':
     case 'auth/wrong-password':
     case 'auth/invalid-credential':
-      return 'Email o contraseña incorrectos'
+      return 'Usuario o contraseña incorrectos'
     case 'auth/too-many-requests':
       return 'Demasiados intentos. Intentá más tarde.'
     default:
@@ -23,7 +23,7 @@ function firebaseErrorMessage(code: string): string {
 }
 
 export function LoginPage() {
-  const [email, setEmail] = useState('')
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -36,7 +36,10 @@ export function LoginPage() {
     setError('')
     setLoading(true)
     try {
-      await login(email.trim(), password)
+      // Build the Firebase email from the username
+      const raw = username.trim().toLowerCase()
+      const email = raw.includes('@') ? raw : `${raw}@controlx.app`
+      await login(email, password)
     } catch (err: unknown) {
       const code = (err as { code?: string }).code || ''
       setError(firebaseErrorMessage(code))
@@ -83,15 +86,16 @@ export function LoginPage() {
         >
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-gray-400">Email</label>
+              <label className="text-xs font-medium text-gray-400">Usuario</label>
               <div className="relative">
-                <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
+                <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
                 <input
-                  type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  placeholder="correo@empresa.com"
-                  autoComplete="email"
+                  type="text"
+                  value={username}
+                  onChange={e => setUsername(e.target.value)}
+                  placeholder="nombre de usuario"
+                  autoComplete="username"
+                  autoCapitalize="none"
                   style={{ backgroundColor: 'var(--bg)', borderColor: 'var(--border)' }}
                   className="w-full border rounded-lg pl-9 pr-3 py-2.5 text-sm text-gray-200 placeholder:text-gray-600 focus:border-brand-500/50 focus:ring-1 focus:ring-brand-500/20 outline-none transition-all"
                 />

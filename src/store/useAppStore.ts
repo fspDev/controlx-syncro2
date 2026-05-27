@@ -89,8 +89,6 @@ interface AppState {
   setTheme: (t: 'dark' | 'light' | 'system') => void
 }
 
-// kept for backward compat — no longer drives auth
-const passwords: Record<string, string> = {}
 
 export const useAppStore = create<AppState>()(
   persist(
@@ -122,9 +120,14 @@ export const useAppStore = create<AppState>()(
             let profile = await getUsuarioByUid(firebaseUser.uid).catch(() => null)
             if (!profile) {
               // Fallback: build from Firebase Auth data
+              // Strip the @controlx.app domain from simulated emails
+              const rawEmail = firebaseUser.email || ''
+              const username = rawEmail.endsWith('@controlx.app')
+                ? rawEmail.replace('@controlx.app', '')
+                : rawEmail
               profile = userFromFirestore(firebaseUser.uid, {
-                username: firebaseUser.email || '',
-                displayName: firebaseUser.displayName || '',
+                username,
+                displayName: firebaseUser.displayName || username,
                 role: 'user',
                 createdAt: firebaseUser.metadata.creationTime || new Date().toISOString(),
               })
