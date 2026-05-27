@@ -5,17 +5,27 @@ import { Sidebar } from './Sidebar'
 import { Header } from './Header'
 
 export function Layout() {
-  const { currentUser, usuarios, sidebarOpen, setSidebarOpen } = useAppStore()
+  const { currentUser, authLoading, sidebarOpen, setSidebarOpen, initAuth } = useAppStore()
 
-  // Demo mode: auto-login as admin if no session active
   useEffect(() => {
-    if (!currentUser) {
-      const admin = usuarios.find(u => u.rol === 'admin')
-      if (admin) useAppStore.setState({ currentUser: admin })
-    }
-  }, [currentUser, usuarios])
+    return initAuth()
+  }, [])
 
-  if (!currentUser && !usuarios.find(u => u.rol === 'admin')) return <Navigate to="/login" replace />
+  if (authLoading) {
+    return (
+      <div
+        className="w-full min-h-screen flex items-center justify-center"
+        style={{ backgroundColor: 'var(--bg)' }}
+      >
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+          <span className="text-sm text-gray-500">Cargando...</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (!currentUser) return <Navigate to="/login" replace />
 
   return (
     <div className="flex h-screen w-full overflow-hidden">

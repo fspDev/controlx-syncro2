@@ -1,68 +1,23 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import {
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+} from 'firebase/auth'
+import { auth } from '@/lib/firebase'
+import {
+  fetchEventos, saveEvento, deleteEventoDoc,
+  fetchTrabajos, saveTrabajo, deleteTrabajoDoc,
+  fetchUsuarios, saveUsuario,
+  fetchClientes, saveCliente, deleteClienteDoc,
+  fetchTareasPlantilla, saveTareasPlantilla,
+  getUsuarioByUid,
+  userFromFirestore,
+} from '@/lib/db'
 import type { Cliente, Evento, Usuario, TrabajoExterno, Tarea, PlanillaGrafica, TipoPieza, Pieza } from '@/types'
-import { TIPO_PREFIX, TIPO_COLOR_HEX } from '@/types'
+import { TIPO_PREFIX } from '@/types'
 import { genId } from '@/lib/utils'
-
-const SEED_USUARIOS: Usuario[] = [
-  { id: 'u1', username: 'admin', displayName: 'Admin', rol: 'admin', createdAt: '2026-01-01T00:00:00Z' },
-  { id: 'u2', username: 'jane.doe', displayName: 'Jane Doe', rol: 'user', createdAt: '2026-01-01T00:00:00Z' },
-  { id: 'u3', username: 'john.smith', displayName: 'John Smith', rol: 'user', createdAt: '2026-01-01T00:00:00Z' },
-]
-
-const SEED_CLIENTES: Cliente[] = [
-  { id: 'c1', nombre: 'Familia González', contacto: 'Carlos González', telefono: '11-4455-6677', email: 'cgonzalez@mail.com', createdAt: '2026-01-10T00:00:00Z' },
-  { id: 'c2', nombre: 'TechCorp Inc.', contacto: 'María López', telefono: '11-5544-3322', email: 'mlopez@techcorp.com', cuit: '30-71234567-8', createdAt: '2026-01-15T00:00:00Z' },
-  { id: 'c3', nombre: 'Asociación de Marketing Digital', contacto: 'Pablo Fernández', telefono: '11-6677-8899', email: 'pablo@amd.org', createdAt: '2026-02-01T00:00:00Z' },
-  { id: 'c4', nombre: 'Producciones Musicales Sonido Libre', contacto: 'Ana Rodríguez', telefono: '11-9988-7766', createdAt: '2026-02-10T00:00:00Z' },
-]
-
-const SEED_EVENTOS: Evento[] = [
-  {
-    id: 'e1', titulo: 'Boda en Viñedo', clienteId: 'c1', lugar: 'Viñedo Santa Rita',
-    fabricacion: 'Estructuras de madera personalizadas', estado: 'Confirmado', responsableId: 'u2',
-    tareas: [
-      { id: 't1', titulo: 'Confirmar lista de invitados', responsableId: 'u2', completada: false, createdAt: '2026-05-01T00:00:00Z' },
-      { id: 't2', titulo: 'Revisar pronóstico del tiempo', completada: false, createdAt: '2026-05-01T00:00:00Z' },
-      { id: 't3', titulo: 'Coordinar con proveedor de flores', responsableId: 'u3', completada: true, createdAt: '2026-05-01T00:00:00Z' },
-    ],
-    notas: 'Evento al aire libre, tener plan B por lluvia.',
-    armadoInicio: '2026-05-09', eventoInicio: '2026-05-10', desarme: '2026-05-11',
-    createdAt: '2026-04-01T00:00:00Z', updatedAt: '2026-05-08T09:56:00Z', createdBy: 'u1',
-  },
-  {
-    id: 'e2', titulo: 'Lanzamiento de Producto TechCorp', clienteId: 'c2', lugar: 'Centro de Convenciones Metropolitano',
-    fabricacion: 'Stand modular con pantallas LED', estado: 'Confirmado', responsableId: 'u3',
-    tareas: [
-      { id: 't4', titulo: 'Entrega de materiales al proveedor', responsableId: 'u3', completada: true, createdAt: '2026-04-20T00:00:00Z' },
-      { id: 't5', titulo: 'Prueba de pantallas LED', completada: false, createdAt: '2026-04-20T00:00:00Z' },
-    ],
-    notas: '',
-    armadoInicio: '2026-05-12', eventoInicio: '2026-05-13', eventoFin: '2026-05-14', desarme: '2026-05-15',
-    renders: ['/render-demo.jpg'],
-    carpetaServidor: 'C:\\Users\\Usuario\\Desktop\\control-x-syncro',
-    createdAt: '2026-03-15T00:00:00Z', updatedAt: '2026-05-08T00:00:00Z', createdBy: 'u1',
-  },
-  {
-    id: 'e3', titulo: 'Conferencia Anual de Marketing', clienteId: 'c3', lugar: 'Hotel Grand Hyatt',
-    fabricacion: 'Escenario principal y stands laterales', estado: 'Finalizado', responsableId: 'u2',
-    tareas: [], notas: 'Evento finalizado sin inconvenientes.',
-    armadoInicio: '2026-04-27', eventoInicio: '2026-04-28', desarme: '2026-04-29',
-    createdAt: '2026-02-01T00:00:00Z', updatedAt: '2026-04-30T00:00:00Z', createdBy: 'u1',
-  },
-  {
-    id: 'e4', titulo: 'Festival de Música Indie', clienteId: 'c4', lugar: 'Parque Bicentenario',
-    fabricacion: 'Estructuras para escenario y backstage', estado: 'Negociacion', responsableId: undefined,
-    tareas: [
-      { id: 't6', titulo: 'Reunión inicial con cliente', completada: false, createdAt: '2026-04-01T00:00:00Z' },
-    ],
-    notas: 'Pendiente de confirmación de presupuesto.',
-    eventoInicio: '2026-08-04',
-    createdAt: '2026-04-01T00:00:00Z', updatedAt: '2026-05-01T00:00:00Z', createdBy: 'u1',
-  },
-]
-
-const SEED_TRABAJOS: TrabajoExterno[] = []
 
 export interface TareaPlantilla {
   id: string
@@ -73,8 +28,12 @@ export interface TareaPlantilla {
 interface AppState {
   // Auth
   currentUser: Usuario | null
-  login: (username: string, password: string) => boolean
-  logout: () => void
+  authLoading: boolean
+  dataLoading: boolean
+  login: (email: string, password: string) => Promise<void>
+  logout: () => Promise<void>
+  initAuth: () => () => void
+  loadAllData: () => Promise<void>
 
   // Usuarios
   usuarios: Usuario[]
@@ -130,50 +89,112 @@ interface AppState {
   setTheme: (t: 'dark' | 'light' | 'system') => void
 }
 
-// Simple password store (in real app this would be hashed server-side)
-const passwords: Record<string, string> = { admin: 'admin123', 'jane.doe': 'jane123', 'john.smith': 'john123' }
+// kept for backward compat — no longer drives auth
+const passwords: Record<string, string> = {}
 
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
       currentUser: null,
-      login: (username, password) => {
-        const usuarios = get().usuarios
-        const user = usuarios.find(u => u.username === username)
-        const storedPasswords = (get() as AppState & { _passwords?: Record<string, string> })._passwords || passwords
-        if (user && storedPasswords[username] === password) {
-          set({ currentUser: user })
-          return true
-        }
-        return false
-      },
-      logout: () => set({ currentUser: null }),
+      authLoading: true,
+      dataLoading: false,
 
-      usuarios: SEED_USUARIOS,
+      login: async (email, password) => {
+        await signInWithEmailAndPassword(auth, email, password)
+        // onAuthStateChanged will handle setting currentUser + loading data
+      },
+
+      logout: async () => {
+        await signOut(auth)
+        set({
+          currentUser: null,
+          usuarios: [],
+          clientes: [],
+          eventos: [],
+          trabajos: [],
+        })
+      },
+
+      initAuth: () => {
+        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+          if (firebaseUser) {
+            // Load user profile from Firestore
+            let profile = await getUsuarioByUid(firebaseUser.uid).catch(() => null)
+            if (!profile) {
+              // Fallback: build from Firebase Auth data
+              profile = userFromFirestore(firebaseUser.uid, {
+                username: firebaseUser.email || '',
+                displayName: firebaseUser.displayName || '',
+                role: 'user',
+                createdAt: firebaseUser.metadata.creationTime || new Date().toISOString(),
+              })
+            }
+            set({ currentUser: profile, authLoading: false })
+            await get().loadAllData()
+          } else {
+            set({
+              currentUser: null,
+              authLoading: false,
+              usuarios: [],
+              clientes: [],
+              eventos: [],
+              trabajos: [],
+            })
+          }
+        })
+        return unsubscribe
+      },
+
+      loadAllData: async () => {
+        set({ dataLoading: true })
+        try {
+          const [eventos, clientes, trabajos, usuarios, tareasPlantilla] = await Promise.all([
+            fetchEventos(),
+            fetchClientes(),
+            fetchTrabajos(),
+            fetchUsuarios(),
+            fetchTareasPlantilla(),
+          ])
+          set({ eventos, clientes, trabajos, usuarios, tareasPlantilla, dataLoading: false })
+        } catch (err) {
+          console.error('loadAllData error:', err)
+          set({ dataLoading: false })
+        }
+      },
+
+      usuarios: [],
       addUsuario: (data) => {
         const id = genId()
-        passwords[data.username] = data.password
-        set(s => ({ usuarios: [...s.usuarios, { id, username: data.username, displayName: data.displayName, rol: data.rol, createdAt: new Date().toISOString() }] }))
+        const u: Usuario = { id, username: data.username, displayName: data.displayName, rol: data.rol, createdAt: new Date().toISOString() }
+        set(s => ({ usuarios: [...s.usuarios, u] }))
+        saveUsuario(u).catch(console.error)
       },
       updateUsuario: (id, data) => {
-        if (data.password) {
-          const u = get().usuarios.find(u => u.id === id)
-          if (u) passwords[u.username] = data.password
-        }
         set(s => ({ usuarios: s.usuarios.map(u => u.id === id ? { ...u, ...data } : u) }))
+        const updated = get().usuarios.find(u => u.id === id)
+        if (updated) saveUsuario(updated).catch(console.error)
       },
       deleteUsuario: (id) => set(s => ({ usuarios: s.usuarios.filter(u => u.id !== id) })),
 
-      clientes: SEED_CLIENTES,
+      clientes: [],
       addCliente: (data) => {
         const id = genId()
-        set(s => ({ clientes: [...s.clientes, { ...data, id, createdAt: new Date().toISOString() }] }))
+        const c: Cliente = { ...data, id, createdAt: new Date().toISOString() }
+        set(s => ({ clientes: [...s.clientes, c] }))
+        saveCliente(c).catch(console.error)
         return id
       },
-      updateCliente: (id, data) => set(s => ({ clientes: s.clientes.map(c => c.id === id ? { ...c, ...data } : c) })),
-      deleteCliente: (id) => set(s => ({ clientes: s.clientes.filter(c => c.id !== id) })),
+      updateCliente: (id, data) => {
+        set(s => ({ clientes: s.clientes.map(c => c.id === id ? { ...c, ...data } : c) }))
+        const updated = get().clientes.find(c => c.id === id)
+        if (updated) saveCliente(updated).catch(console.error)
+      },
+      deleteCliente: (id) => {
+        set(s => ({ clientes: s.clientes.filter(c => c.id !== id) }))
+        deleteClienteDoc(id).catch(console.error)
+      },
 
-      eventos: SEED_EVENTOS,
+      eventos: [],
       addEvento: (data) => {
         const id = genId()
         const now = new Date().toISOString()
@@ -185,55 +206,96 @@ export const useAppStore = create<AppState>()(
           completada: false,
           createdAt: now,
         }))
-        set(s => ({ eventos: [...s.eventos, { ...data, id, tareas, createdAt: now, updatedAt: now, createdBy: user?.id || 'u1' }] }))
+        const e: Evento = { ...data, id, tareas, createdAt: now, updatedAt: now, createdBy: user?.id || '' }
+        set(s => ({ eventos: [...s.eventos, e] }))
+        saveEvento(e).catch(console.error)
         return id
       },
-      updateEvento: (id, data) => set(s => ({
-        eventos: s.eventos.map(e => e.id === id ? { ...e, ...data, updatedAt: new Date().toISOString() } : e)
-      })),
-      deleteEvento: (id) => set(s => ({ eventos: s.eventos.filter(e => e.id !== id) })),
+      updateEvento: (id, data) => {
+        set(s => ({
+          eventos: s.eventos.map(e => e.id === id ? { ...e, ...data, updatedAt: new Date().toISOString() } : e)
+        }))
+        const updated = get().eventos.find(e => e.id === id)
+        if (updated) saveEvento(updated).catch(console.error)
+      },
+      deleteEvento: (id) => {
+        set(s => ({ eventos: s.eventos.filter(e => e.id !== id) }))
+        deleteEventoDoc(id).catch(console.error)
+      },
       addTarea: (eventoId, tarea) => {
         const id = genId()
+        const now = new Date().toISOString()
         set(s => ({
           eventos: s.eventos.map(e => e.id === eventoId
-            ? { ...e, tareas: [...e.tareas, { ...tarea, id, createdAt: new Date().toISOString() }], updatedAt: new Date().toISOString() }
+            ? { ...e, tareas: [...e.tareas, { ...tarea, id, createdAt: now }], updatedAt: now }
             : e)
         }))
+        const updated = get().eventos.find(e => e.id === eventoId)
+        if (updated) saveEvento(updated).catch(console.error)
       },
-      updateTarea: (eventoId, tareaId, data) => set(s => ({
-        eventos: s.eventos.map(e => e.id === eventoId
-          ? { ...e, tareas: e.tareas.map(t => t.id === tareaId ? { ...t, ...data } : t), updatedAt: new Date().toISOString() }
-          : e)
-      })),
-      deleteTarea: (eventoId, tareaId) => set(s => ({
-        eventos: s.eventos.map(e => e.id === eventoId
-          ? { ...e, tareas: e.tareas.filter(t => t.id !== tareaId), updatedAt: new Date().toISOString() }
-          : e)
-      })),
+      updateTarea: (eventoId, tareaId, data) => {
+        set(s => ({
+          eventos: s.eventos.map(e => e.id === eventoId
+            ? { ...e, tareas: e.tareas.map(t => t.id === tareaId ? { ...t, ...data } : t), updatedAt: new Date().toISOString() }
+            : e)
+        }))
+        const updated = get().eventos.find(e => e.id === eventoId)
+        if (updated) saveEvento(updated).catch(console.error)
+      },
+      deleteTarea: (eventoId, tareaId) => {
+        set(s => ({
+          eventos: s.eventos.map(e => e.id === eventoId
+            ? { ...e, tareas: e.tareas.filter(t => t.id !== tareaId), updatedAt: new Date().toISOString() }
+            : e)
+        }))
+        const updated = get().eventos.find(e => e.id === eventoId)
+        if (updated) saveEvento(updated).catch(console.error)
+      },
 
       tareasPlantilla: [],
       addTareaPlantilla: (titulo) => {
         const id = genId()
-        set(s => ({ tareasPlantilla: [...s.tareasPlantilla, { id, titulo, orden: s.tareasPlantilla.length }] }))
+        set(s => {
+          const updated = [...s.tareasPlantilla, { id, titulo, orden: s.tareasPlantilla.length }]
+          saveTareasPlantilla(updated).catch(console.error)
+          return { tareasPlantilla: updated }
+        })
       },
-      updateTareaPlantilla: (id, titulo) => set(s => ({
-        tareasPlantilla: s.tareasPlantilla.map(t => t.id === id ? { ...t, titulo } : t)
-      })),
-      deleteTareaPlantilla: (id) => set(s => ({
-        tareasPlantilla: s.tareasPlantilla.filter(t => t.id !== id).map((t, i) => ({ ...t, orden: i }))
-      })),
+      updateTareaPlantilla: (id, titulo) => {
+        set(s => {
+          const updated = s.tareasPlantilla.map(t => t.id === id ? { ...t, titulo } : t)
+          saveTareasPlantilla(updated).catch(console.error)
+          return { tareasPlantilla: updated }
+        })
+      },
+      deleteTareaPlantilla: (id) => {
+        set(s => {
+          const updated = s.tareasPlantilla.filter(t => t.id !== id).map((t, i) => ({ ...t, orden: i }))
+          saveTareasPlantilla(updated).catch(console.error)
+          return { tareasPlantilla: updated }
+        })
+      },
 
-      trabajos: SEED_TRABAJOS,
+      trabajos: [],
       addTrabajo: (data) => {
         const id = genId()
         const now = new Date().toISOString()
-        set(s => ({ trabajos: [...s.trabajos, { ...data, id, createdAt: now, updatedAt: now }] }))
+        const j: TrabajoExterno = { ...data, id, createdAt: now, updatedAt: now }
+        set(s => ({ trabajos: [...s.trabajos, j] }))
+        saveTrabajo(j).catch(console.error)
         return id
       },
-      updateTrabajo: (id, data) => set(s => ({
-        trabajos: s.trabajos.map(t => t.id === id ? { ...t, ...data, updatedAt: new Date().toISOString() } : t)
-      })),
-      deleteTrabajo: (id) => set(s => ({ trabajos: s.trabajos.filter(t => t.id !== id) })),
+      updateTrabajo: (id, data) => {
+        set(s => ({
+          trabajos: s.trabajos.map(t => t.id === id ? { ...t, ...data, updatedAt: new Date().toISOString() } : t)
+        }))
+        const updated = get().trabajos.find(t => t.id === id)
+        if (updated) saveTrabajo(updated).catch(console.error)
+      },
+      deleteTrabajo: (id) => {
+        set(s => ({ trabajos: s.trabajos.filter(t => t.id !== id) }))
+        deleteTrabajoDoc(id).catch(console.error)
+      },
 
       planillas: [],
       getOrCreatePlanilla: (eventoId) => {
@@ -261,7 +323,7 @@ export const useAppStore = create<AppState>()(
       addPieza: (planillaId, data) => {
         const id = genId()
         const piezas = get().planillas.find(p => p.id === planillaId)?.piezas || []
-        const prefix = TIPO_PREFIX[data.tipo]
+        const prefix = TIPO_PREFIX[data.tipo as TipoPieza]
         const nums = piezas.filter(p => p.tipo === data.tipo).map(p => parseInt(p.label.slice(1)) || 0)
         const nextNum = nums.length > 0 ? Math.max(...nums) + 1 : 1
         const label = `${prefix}${nextNum}`
@@ -343,13 +405,8 @@ export const useAppStore = create<AppState>()(
     {
       name: 'controlx-store',
       partialize: (s) => ({
-        currentUser: s.currentUser,
-        usuarios: s.usuarios,
-        clientes: s.clientes,
-        eventos: s.eventos,
-        trabajos: s.trabajos,
-        tareasPlantilla: s.tareasPlantilla,
         planillas: s.planillas,
+        tareasPlantilla: s.tareasPlantilla,
         sidebarOpen: s.sidebarOpen,
         theme: s.theme,
       }),

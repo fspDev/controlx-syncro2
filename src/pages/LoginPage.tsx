@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAppStore } from '@/store/useAppStore'
-import { Lock, User, Sun, Moon, Monitor } from 'lucide-react'
+import { Lock, Mail, Sun, Moon, Monitor } from 'lucide-react'
 
 const THEME_OPTS = [
   { value: 'dark' as const,   icon: Moon,    label: 'Oscuro' },
@@ -9,19 +9,40 @@ const THEME_OPTS = [
   { value: 'system' as const, icon: Monitor, label: 'Sistema' },
 ]
 
+function firebaseErrorMessage(code: string): string {
+  switch (code) {
+    case 'auth/user-not-found':
+    case 'auth/wrong-password':
+    case 'auth/invalid-credential':
+      return 'Email o contraseña incorrectos'
+    case 'auth/too-many-requests':
+      return 'Demasiados intentos. Intentá más tarde.'
+    default:
+      return 'Error al iniciar sesión. Intentá de nuevo.'
+  }
+}
+
 export function LoginPage() {
-  const [username, setUsername] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
   const { login, currentUser, theme, setTheme } = useAppStore()
 
   if (currentUser) return <Navigate to="/dashboard" replace />
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    const ok = login(username.trim(), password)
-    if (!ok) setError('Usuario o contraseña incorrectos')
+    setLoading(true)
+    try {
+      await login(email.trim(), password)
+    } catch (err: unknown) {
+      const code = (err as { code?: string }).code || ''
+      setError(firebaseErrorMessage(code))
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -62,14 +83,15 @@ export function LoginPage() {
         >
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-gray-400">Usuario</label>
+              <label className="text-xs font-medium text-gray-400">Email</label>
               <div className="relative">
-                <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
+                <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
                 <input
-                  value={username}
-                  onChange={e => setUsername(e.target.value)}
-                  placeholder="usuario"
-                  autoComplete="username"
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="correo@empresa.com"
+                  autoComplete="email"
                   style={{ backgroundColor: 'var(--bg)', borderColor: 'var(--border)' }}
                   className="w-full border rounded-lg pl-9 pr-3 py-2.5 text-sm text-gray-200 placeholder:text-gray-600 focus:border-brand-500/50 focus:ring-1 focus:ring-brand-500/20 outline-none transition-all"
                 />
@@ -95,9 +117,10 @@ export function LoginPage() {
             )}
             <button
               type="submit"
-              className="w-full bg-brand-500 hover:bg-brand-600 text-white font-medium py-2.5 rounded-lg text-sm transition-all cursor-pointer mt-1"
+              disabled={loading}
+              className="w-full bg-brand-500 hover:bg-brand-600 disabled:opacity-60 disabled:cursor-not-allowed text-white font-medium py-2.5 rounded-lg text-sm transition-all cursor-pointer mt-1"
             >
-              Ingresar
+              {loading ? 'Ingresando...' : 'Ingresar'}
             </button>
           </form>
         </div>
