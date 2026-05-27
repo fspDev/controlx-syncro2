@@ -20,6 +20,26 @@ function tsToIso(val: unknown): string {
   return ''
 }
 
+// ─── Normalizers ─────────────────────────────────────────────────────────────
+
+function normalizeEstadoEvento(s: unknown): Evento['estado'] {
+  const VALID: Evento['estado'][] = ['Negociacion', 'Confirmado', 'Armado', 'Finalizado', 'Cancelado']
+  if (!s) return 'Negociacion'
+  const str = String(s)
+  // Exact match
+  if (VALID.includes(str as Evento['estado'])) return str as Evento['estado']
+  // Case-insensitive + accent-insensitive
+  const lower = str.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+  const MAP: Record<string, Evento['estado']> = {
+    negociacion: 'Negociacion',
+    confirmado: 'Confirmado',
+    armado: 'Armado',
+    finalizado: 'Finalizado',
+    cancelado: 'Cancelado',
+  }
+  return MAP[lower] ?? 'Negociacion'
+}
+
 // ─── Field mappers ────────────────────────────────────────────────────────────
 
 export function userFromFirestore(id: string, data: Record<string, unknown>): Usuario {
@@ -43,7 +63,7 @@ function eventoFromFirestore(id: string, data: Record<string, unknown>): Evento 
     clienteId: (data.clienteId as string) || (data.cliente as string) || '',
     lugar: (data.lugar as string) || '',
     fabricacion: (data.fabricacion as string) || '',
-    estado: (data.estado as Evento['estado']) || 'Negociacion',
+    estado: normalizeEstadoEvento(data.estado),
     responsableId: (data.responsableId as string) || undefined,
     tareas: tareas.map((t: Record<string, unknown>) => ({
       id: t.id as string,

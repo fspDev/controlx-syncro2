@@ -20,13 +20,19 @@ export function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(amount)
 }
 
-export const ESTADO_COLORS: Record<EventoEstado, { bg: string; text: string; dot: string }> = {
+const _ESTADO_COLORS: Record<EventoEstado, { bg: string; text: string; dot: string }> = {
   Negociacion: { bg: 'bg-amber-500/15', text: 'text-amber-400', dot: 'bg-amber-400' },
   Confirmado:  { bg: 'bg-blue-500/15',  text: 'text-blue-400',  dot: 'bg-blue-400' },
   Armado:      { bg: 'bg-violet-500/15',text: 'text-violet-400',dot: 'bg-violet-400' },
   Finalizado:  { bg: 'bg-emerald-500/15',text: 'text-emerald-400',dot: 'bg-emerald-400' },
   Cancelado:   { bg: 'bg-red-500/15',   text: 'text-red-400',   dot: 'bg-red-400' },
 }
+// Proxy that falls back to Negociacion for unknown estado values (e.g. v1 data)
+export const ESTADO_COLORS = new Proxy(_ESTADO_COLORS, {
+  get(target, prop) {
+    return (target as Record<string, unknown>)[prop as string] ?? target['Negociacion']
+  },
+}) as typeof _ESTADO_COLORS
 
 export const TRABAJO_ESTADO_COLORS: Record<TrabajoEstado, { bg: string; text: string }> = {
   'Pendiente':   { bg: 'bg-amber-500/15',  text: 'text-amber-400' },
