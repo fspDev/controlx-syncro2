@@ -98,8 +98,9 @@ export const useAppStore = create<AppState>()(
       dataLoading: false,
 
       login: async (email, password) => {
+        console.log('[auth] attempting login with:', email)
         await signInWithEmailAndPassword(auth, email, password)
-        // onAuthStateChanged will handle setting currentUser + loading data
+        console.log('[auth] signInWithEmailAndPassword OK')
       },
 
       logout: async () => {
@@ -115,34 +116,46 @@ export const useAppStore = create<AppState>()(
 
       initAuth: () => {
         const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-          if (firebaseUser) {
-            // Load user profile from Firestore
-            let profile = await getUsuarioByUid(firebaseUser.uid).catch(() => null)
-            if (!profile) {
-              // Fallback: build from Firebase Auth data
-              // Strip the @controlx.app domain from simulated emails
-              const rawEmail = firebaseUser.email || ''
-              const username = rawEmail.endsWith('@controlx.app')
-                ? rawEmail.replace('@controlx.app', '')
-                : rawEmail
-              profile = userFromFirestore(firebaseUser.uid, {
-                username,
-                displayName: firebaseUser.displayName || username,
-                role: 'user',
-                createdAt: firebaseUser.metadata.creationTime || new Date().toISOString(),
+          try {
+            if (firebaseUser) {
+              console.log('[auth] user signed in:', firebaseUser.email, 'uid:', firebaseUser.uid)
+              // Load user profile from Firestore
+              let profile = await getUsuarioByUid(firebaseUser.uid).catch((e) => {
+                console.warn('[auth] getUsuarioByUid failed (will use fallback):', e?.code || e)
+                return null
+              })
+              if (!profile) {
+                // Fallback: build from Firebase Auth data
+                const rawEmail = firebaseUser.email || ''
+                const username = rawEmail.endsWith('@controlx.app')
+                  ? rawEmail.replace('@controlx.app', '')
+                  : rawEmail
+                profile = userFromFirestore(firebaseUser.uid, {
+                  username,
+                  displayName: firebaseUser.displayName || username,
+                  role: 'user',
+                  createdAt: firebaseUser.metadata.creationTime || new Date().toISOString(),
+                })
+                console.log('[auth] using fallback profile:', profile)
+              } else {
+                console.log('[auth] profile loaded from Firestore:', profile)
+              }
+              set({ currentUser: profile, authLoading: false })
+              await get().loadAllData()
+            } else {
+              console.log('[auth] no user session')
+              set({
+                currentUser: null,
+                authLoading: false,
+                usuarios: [],
+                clientes: [],
+                eventos: [],
+                trabajos: [],
               })
             }
-            set({ currentUser: profile, authLoading: false })
-            await get().loadAllData()
-          } else {
-            set({
-              currentUser: null,
-              authLoading: false,
-              usuarios: [],
-              clientes: [],
-              eventos: [],
-              trabajos: [],
-            })
+          } catch (e) {
+            console.error('[auth] initAuth callback error:', e)
+            set({ authLoading: false })
           }
         })
         return unsubscribe
@@ -150,19 +163,26 @@ export const useAppStore = create<AppState>()(
 
       loadAllData: async () => {
         set({ dataLoading: true })
-        try {
-          const [eventos, clientes, trabajos, usuarios, tareasPlantilla] = await Promise.all([
-            fetchEventos(),
-            fetchClientes(),
-            fetchTrabajos(),
-            fetchUsuarios(),
-            fetchTareasPlantilla(),
-          ])
-          set({ eventos, clientes, trabajos, usuarios, tareasPlantilla, dataLoading: false })
-        } catch (err) {
-          console.error('loadAllData error:', err)
-          set({ dataLoading: false })
-        }
+        const [eventosR, clientesR, trabajosR, usuariosR, tareasR] = await Promise.allSettled([
+          fetchEventos(),
+          fetchClientes(),
+          fetchTrabajos(),
+          fetchUsuarios(),
+          fetchTareasPlantilla(),
+        ])
+        const names = ['eventos', 'clientes', 'trabajos', 'usuarios', 'tareasPlantilla']
+        ;[eventosR, clientesR, trabajosR, usuariosR, tareasR].forEach((r, i) => {
+          if (r.status === 'rejected') console.error(`[data] ${names[i]} failed:`, r.reason?.code || r.reason)
+          else console.log(`[data] ${names[i]} loaded: ${(r.value as unknown[]).length ?? '?'} items`)
+        })
+        set({
+          eventos:         eventosR.status  === 'fulfilled' ? eventosR.value  : [],
+          clientes:        clientesR.status === 'fulfilled' ? clientesR.value : [],
+          trabajos:        trabajosR.status === 'fulfilled' ? trabajosR.value : [],
+          usuarios:        usuariosR.status === 'fulfilled' ? usuariosR.value : [],
+          tareasPlantilla: tareasR.status   === 'fulfilled' ? tareasR.value   : get().tareasPlantilla,
+          dataLoading: false,
+        })
       },
 
       usuarios: [],
