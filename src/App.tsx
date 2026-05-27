@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAppStore } from '@/store/useAppStore'
 import { WelcomeModal } from '@/components/WelcomeModal'
+
 import { Layout } from '@/components/layout/Layout'
 import { LoginPage } from '@/pages/LoginPage'
 import { DashboardPage } from '@/pages/DashboardPage'
@@ -39,6 +40,11 @@ function ThemeProvider({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   const [showWelcome, setShowWelcome] = useState(true)
+  const initAuth = useAppStore(s => s.initAuth)
+
+  useEffect(() => {
+    return initAuth()
+  }, [])
 
   return (
     <BrowserRouter basename="/controlx-syncro2">

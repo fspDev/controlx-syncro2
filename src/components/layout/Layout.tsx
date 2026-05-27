@@ -1,15 +1,10 @@
-import { useEffect } from 'react'
 import { Outlet, Navigate } from 'react-router-dom'
 import { useAppStore } from '@/store/useAppStore'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
 
 export function Layout() {
-  const { currentUser, authLoading, sidebarOpen, setSidebarOpen, initAuth } = useAppStore()
-
-  useEffect(() => {
-    return initAuth()
-  }, [])
+  const { currentUser, authLoading, sidebarOpen, setSidebarOpen } = useAppStore()
 
   if (authLoading) {
     return (
