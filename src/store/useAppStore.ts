@@ -463,6 +463,7 @@ export const useAppStore = create<AppState>()(
       partialize: (s) => ({
         planillas: s.planillas,
         tareasPlantilla: s.tareasPlantilla,
+        tareasUsuario: s.tareasUsuario,
         sidebarOpen: s.sidebarOpen,
         theme: s.theme,
       }),

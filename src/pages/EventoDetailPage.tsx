@@ -266,12 +266,79 @@ export function EventoDetailPage() {
             />
           </div>
 
-          {/* Tareas */}
+          {/* Mis tareas personales en este proyecto */}
+          {(() => {
+            const misTareas = tareasUsuario.filter(t => t.eventoId === evento.id)
+            const pendMias = misTareas.filter(t => !t.completada).length
+            return (
+              <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <CheckSquare size={15} className="text-brand-400" />
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Mis tareas</h3>
+                  </div>
+                  {misTareas.length > 0 && (
+                    <span className="text-xs text-gray-600">{pendMias} pendiente{pendMias !== 1 ? 's' : ''}</span>
+                  )}
+                </div>
+                <div className="flex gap-1.5 mb-3">
+                  <input
+                    value={newMiTarea}
+                    onChange={e => setNewMiTarea(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && newMiTarea.trim()) {
+                        addTareaUsuario({ titulo: newMiTarea.trim(), completada: false, prioridad: 'media', eventoId: evento.id })
+                        setNewMiTarea('')
+                      }
+                    }}
+                    placeholder="Nueva tarea mía..."
+                    className="flex-1 bg-[var(--bg)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-gray-200 placeholder:text-gray-600 focus:border-brand-500/50 focus:outline-none transition-all"
+                  />
+                  <Button size="sm" variant="primary"
+                    onClick={() => {
+                      if (!newMiTarea.trim()) return
+                      addTareaUsuario({ titulo: newMiTarea.trim(), completada: false, prioridad: 'media', eventoId: evento.id })
+                      setNewMiTarea('')
+                    }}
+                    disabled={!newMiTarea.trim()}
+                  >
+                    <Plus size={13} />
+                  </Button>
+                </div>
+                {misTareas.length === 0 ? (
+                  <p className="text-sm text-gray-600 text-center py-4">No hay tareas personales para este proyecto</p>
+                ) : (
+                  <div className="space-y-2">
+                    {misTareas.map(t => (
+                      <div key={t.id} className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${t.completada ? 'border-[var(--border-s)] opacity-60' : 'border-[var(--border)] bg-[var(--bg)]/50'}`}>
+                        <button
+                          onClick={() => updateTareaUsuario(t.id, { completada: !t.completada })}
+                          className={`w-4 h-4 rounded shrink-0 border-2 flex items-center justify-center transition-all cursor-pointer ${
+                            t.completada ? 'bg-emerald-500 border-emerald-500' : 'border-[var(--border-h)] hover:border-brand-500'
+                          }`}
+                        >
+                          {t.completada && <Check size={10} className="text-white" strokeWidth={3} />}
+                        </button>
+                        <span className={`text-sm flex-1 ${t.completada ? 'line-through text-gray-500' : 'text-gray-200'}`}>
+                          {t.titulo}
+                        </span>
+                        <button onClick={() => deleteTareaUsuario(t.id)} className="text-gray-600 hover:text-red-400 transition-colors cursor-pointer p-0.5">
+                          <X size={13} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })()}
+
+          {/* Tareas del proyecto */}
           <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <CheckSquare size={15} className="text-gray-500" />
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Tareas</h3>
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Tareas del proyecto</h3>
               </div>
               {tareasTotal > 0 && (
                 <span className="text-xs text-gray-600">{tareasTotal - tareasPend} de {tareasTotal}</span>
@@ -426,70 +493,6 @@ export function EventoDetailPage() {
             </div>
           )}
 
-          {/* Mis tareas en este proyecto */}
-          {(() => {
-            const misTareas = tareasUsuario.filter(t => t.eventoId === evento.id)
-            const pendMias = misTareas.filter(t => !t.completada).length
-            return (
-              <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Mis tareas</h3>
-                  {misTareas.length > 0 && (
-                    <span className="text-xs text-gray-600">{pendMias} pendiente{pendMias !== 1 ? 's' : ''}</span>
-                  )}
-                </div>
-                <div className="flex gap-1.5 mb-3">
-                  <input
-                    value={newMiTarea}
-                    onChange={e => setNewMiTarea(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter' && newMiTarea.trim()) {
-                        addTareaUsuario({ titulo: newMiTarea.trim(), completada: false, prioridad: 'media', eventoId: evento.id })
-                        setNewMiTarea('')
-                      }
-                    }}
-                    placeholder="Agregar tarea mía..."
-                    className="flex-1 bg-[var(--bg)] border border-[var(--border)] rounded-lg px-2.5 py-1.5 text-xs text-gray-200 placeholder:text-gray-600 focus:border-brand-500/50 focus:outline-none transition-all"
-                  />
-                  <button
-                    onClick={() => {
-                      if (!newMiTarea.trim()) return
-                      addTareaUsuario({ titulo: newMiTarea.trim(), completada: false, prioridad: 'media', eventoId: evento.id })
-                      setNewMiTarea('')
-                    }}
-                    disabled={!newMiTarea.trim()}
-                    className="p-1.5 bg-brand-500 hover:bg-brand-600 disabled:opacity-40 text-white rounded-lg transition-colors cursor-pointer"
-                  >
-                    <Plus size={13} />
-                  </button>
-                </div>
-                {misTareas.length === 0 ? (
-                  <p className="text-xs text-gray-600 text-center py-2">Sin tareas personales</p>
-                ) : (
-                  <div className="space-y-1.5">
-                    {misTareas.map(t => (
-                      <div key={t.id} className={`flex items-center gap-2 py-1 ${t.completada ? 'opacity-50' : ''}`}>
-                        <button
-                          onClick={() => updateTareaUsuario(t.id, { completada: !t.completada })}
-                          className={`w-3.5 h-3.5 rounded shrink-0 border-2 flex items-center justify-center transition-all cursor-pointer ${
-                            t.completada ? 'bg-emerald-500 border-emerald-500' : 'border-[var(--border-h)] hover:border-brand-500'
-                          }`}
-                        >
-                          {t.completada && <Check size={8} className="text-white" strokeWidth={3} />}
-                        </button>
-                        <span className={`text-xs flex-1 ${t.completada ? 'line-through text-gray-500' : 'text-gray-300'}`}>
-                          {t.titulo}
-                        </span>
-                        <button onClick={() => deleteTareaUsuario(t.id)} className="text-gray-700 hover:text-red-400 transition-colors cursor-pointer">
-                          <X size={11} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )
-          })()}
         </div>
       </div>
 
