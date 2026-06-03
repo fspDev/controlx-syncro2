@@ -14,6 +14,7 @@ import { ClienteDetailPage } from '@/pages/ClienteDetailPage'
 import { TrabajosPage } from '@/pages/TrabajosPage'
 import { AdminPage } from '@/pages/AdminPage'
 import { PlanillaPage } from '@/pages/PlanillaPage'
+import { MisTareasPage } from '@/pages/MisTareasPage'
 
 function ThemeProvider({ children }: { children: React.ReactNode }) {
   const theme = useAppStore(s => s.theme)
@@ -61,6 +62,7 @@ export default function App() {
             <Route path="/calendario" element={<CalendarioPage />} />
             <Route path="/clientes" element={<ClientesPage />} />
             <Route path="/clientes/:id" element={<ClienteDetailPage />} />
+            <Route path="/mis-tareas" element={<MisTareasPage />} />
             <Route path="/trabajos" element={<TrabajosPage />} />
             <Route path="/admin" element={<AdminPage />} />
           </Route>

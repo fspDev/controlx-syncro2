@@ -3,12 +3,13 @@ import { useAppStore } from '@/store/useAppStore'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, FolderKanban, Calendar, Users, Briefcase,
-  ChevronLeft, ChevronRight, LogOut, Shield, Sun, Moon, Monitor
+  ChevronLeft, ChevronRight, LogOut, Shield, Sun, Moon, Monitor, CheckSquare
 } from 'lucide-react'
 
 const NAV_ITEMS = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/proyectos', icon: FolderKanban, label: 'Proyectos' },
+  { to: '/mis-tareas', icon: CheckSquare, label: 'Mis Tareas' },
   { to: '/calendario', icon: Calendar, label: 'Calendario' },
   { to: '/clientes', icon: Users, label: 'Clientes' },
   { to: '/trabajos', icon: Briefcase, label: 'Trabajos Externos' },
@@ -22,6 +23,7 @@ const THEME_OPTS = [
 
 export function Sidebar() {
   const { sidebarOpen, setSidebarOpen, currentUser, logout, theme, setTheme } = useAppStore()
+  const tareasPendientes = useAppStore(s => s.tareasUsuario.filter(t => !t.completada).length)
 
   const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
   const logoSrc = isDark
@@ -59,7 +61,15 @@ export function Sidebar() {
             title={!sidebarOpen ? label : undefined}
           >
             <Icon size={17} className="shrink-0" />
-            {(sidebarOpen) && <span>{label}</span>}
+            {sidebarOpen && <span className="flex-1">{label}</span>}
+            {to === '/mis-tareas' && tareasPendientes > 0 && (
+              <span className={cn(
+                'text-xs font-medium bg-brand-500/20 text-brand-400 rounded-full leading-none',
+                sidebarOpen ? 'px-1.5 py-0.5' : 'hidden lg:flex items-center justify-center w-4 h-4 text-[10px] absolute top-1 right-1'
+              )}>
+                {tareasPendientes}
+              </span>
+            )}
           </NavLink>
         ))}
 

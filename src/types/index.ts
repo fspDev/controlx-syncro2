@@ -112,6 +112,22 @@ export interface PlanillaGrafica {
   updatedAt: string
 }
 
+// ─── Tareas de Usuario ───────────────────────────────────────────────────────
+
+export type TareaUsuarioPrioridad = 'alta' | 'media' | 'baja'
+
+export interface TareaUsuario {
+  id: string
+  titulo: string
+  completada: boolean
+  prioridad: TareaUsuarioPrioridad
+  eventoId?: string   // link opcional a un proyecto
+  fechaVencimiento?: string
+  userId: string
+  createdAt: string
+  updatedAt: string
+}
+
 // ─── Trabajos ────────────────────────────────────────────────────────────────
 
 export interface TrabajoExterno {

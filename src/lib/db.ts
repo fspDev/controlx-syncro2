@@ -8,7 +8,7 @@ import {
   Timestamp,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
-import type { Evento, TrabajoExterno, Usuario, Cliente } from '@/types'
+import type { Evento, TrabajoExterno, Usuario, Cliente, TareaUsuario } from '@/types'
 import type { TareaPlantilla } from '@/store/useAppStore'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -232,4 +232,42 @@ export async function fetchTareasPlantilla(): Promise<TareaPlantilla[]> {
 
 export async function saveTareasPlantilla(tareas: TareaPlantilla[]): Promise<void> {
   await setDoc(doc(db, 'config', 'tareasPlantilla'), { list: tareas })
+}
+
+// ─── Tareas de Usuario ────────────────────────────────────────────────────────
+
+function tareaUsuarioFromFirestore(id: string, data: Record<string, unknown>): TareaUsuario {
+  return {
+    id,
+    titulo: (data.titulo as string) || '',
+    completada: Boolean(data.completada),
+    prioridad: (data.prioridad as TareaUsuario['prioridad']) || 'media',
+    eventoId: (data.eventoId as string) || undefined,
+    fechaVencimiento: tsToIso(data.fechaVencimiento) || undefined,
+    userId: (data.userId as string) || '',
+    createdAt: tsToIso(data.createdAt) || new Date().toISOString(),
+    updatedAt: tsToIso(data.updatedAt) || new Date().toISOString(),
+  }
+}
+
+export async function fetchTareasUsuario(userId: string): Promise<TareaUsuario[]> {
+  const snap = await getDocs(collection(db, 'tareas', userId, 'items'))
+  return snap.docs.map(d => tareaUsuarioFromFirestore(d.id, d.data() as Record<string, unknown>))
+}
+
+export async function saveTareaUsuario(t: TareaUsuario): Promise<void> {
+  await setDoc(doc(db, 'tareas', t.userId, 'items', t.id), {
+    titulo: t.titulo,
+    completada: t.completada,
+    prioridad: t.prioridad,
+    eventoId: t.eventoId || null,
+    fechaVencimiento: t.fechaVencimiento || null,
+    userId: t.userId,
+    createdAt: t.createdAt,
+    updatedAt: new Date().toISOString(),
+  })
+}
+
+export async function deleteTareaUsuarioDoc(userId: string, tareaId: string): Promise<void> {
+  await deleteDoc(doc(db, 'tareas', userId, 'items', tareaId))
 }

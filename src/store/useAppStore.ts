@@ -12,10 +12,11 @@ import {
   fetchUsuarios, saveUsuario,
   fetchClientes, saveCliente, deleteClienteDoc,
   fetchTareasPlantilla, saveTareasPlantilla,
+  fetchTareasUsuario, saveTareaUsuario, deleteTareaUsuarioDoc,
   getUsuarioByUid,
   userFromFirestore,
 } from '@/lib/db'
-import type { Cliente, Evento, Usuario, TrabajoExterno, Tarea, PlanillaGrafica, TipoPieza, Pieza } from '@/types'
+import type { Cliente, Evento, Usuario, TrabajoExterno, Tarea, PlanillaGrafica, TipoPieza, Pieza, TareaUsuario } from '@/types'
 import { TIPO_PREFIX } from '@/types'
 import { genId } from '@/lib/utils'
 
@@ -61,6 +62,12 @@ interface AppState {
   addTareaPlantilla: (titulo: string) => void
   updateTareaPlantilla: (id: string, titulo: string) => void
   deleteTareaPlantilla: (id: string) => void
+
+  // Tareas de Usuario
+  tareasUsuario: TareaUsuario[]
+  addTareaUsuario: (data: Omit<TareaUsuario, 'id' | 'userId' | 'createdAt' | 'updatedAt'>) => string
+  updateTareaUsuario: (id: string, data: Partial<TareaUsuario>) => void
+  deleteTareaUsuario: (id: string) => void
 
   // Trabajos Externos
   trabajos: TrabajoExterno[]
@@ -163,24 +170,27 @@ export const useAppStore = create<AppState>()(
 
       loadAllData: async () => {
         set({ dataLoading: true })
-        const [eventosR, clientesR, trabajosR, usuariosR, tareasR] = await Promise.allSettled([
+        const userId = get().currentUser?.id || ''
+        const [eventosR, clientesR, trabajosR, usuariosR, tareasR, tareasUsuarioR] = await Promise.allSettled([
           fetchEventos(),
           fetchClientes(),
           fetchTrabajos(),
           fetchUsuarios(),
           fetchTareasPlantilla(),
+          userId ? fetchTareasUsuario(userId) : Promise.resolve([]),
         ])
-        const names = ['eventos', 'clientes', 'trabajos', 'usuarios', 'tareasPlantilla']
-        ;[eventosR, clientesR, trabajosR, usuariosR, tareasR].forEach((r, i) => {
+        const names = ['eventos', 'clientes', 'trabajos', 'usuarios', 'tareasPlantilla', 'tareasUsuario']
+        ;[eventosR, clientesR, trabajosR, usuariosR, tareasR, tareasUsuarioR].forEach((r, i) => {
           if (r.status === 'rejected') console.error(`[data] ${names[i]} failed:`, r.reason?.code || r.reason)
           else console.log(`[data] ${names[i]} loaded: ${(r.value as unknown[]).length ?? '?'} items`)
         })
         set({
-          eventos:         eventosR.status  === 'fulfilled' ? eventosR.value  : [],
-          clientes:        clientesR.status === 'fulfilled' ? clientesR.value : [],
-          trabajos:        trabajosR.status === 'fulfilled' ? trabajosR.value : [],
-          usuarios:        usuariosR.status === 'fulfilled' ? usuariosR.value : [],
-          tareasPlantilla: tareasR.status   === 'fulfilled' ? tareasR.value   : get().tareasPlantilla,
+          eventos:         eventosR.status        === 'fulfilled' ? eventosR.value        : [],
+          clientes:        clientesR.status       === 'fulfilled' ? clientesR.value       : [],
+          trabajos:        trabajosR.status       === 'fulfilled' ? trabajosR.value       : [],
+          usuarios:        usuariosR.status       === 'fulfilled' ? usuariosR.value       : [],
+          tareasPlantilla: tareasR.status         === 'fulfilled' ? tareasR.value         : get().tareasPlantilla,
+          tareasUsuario:   tareasUsuarioR.status  === 'fulfilled' ? tareasUsuarioR.value  : [],
           dataLoading: false,
         })
       },
@@ -297,6 +307,29 @@ export const useAppStore = create<AppState>()(
           saveTareasPlantilla(updated).catch(console.error)
           return { tareasPlantilla: updated }
         })
+      },
+
+      tareasUsuario: [],
+      addTareaUsuario: (data) => {
+        const id = genId()
+        const now = new Date().toISOString()
+        const userId = get().currentUser?.id || ''
+        const t: TareaUsuario = { ...data, id, userId, createdAt: now, updatedAt: now }
+        set(s => ({ tareasUsuario: [...s.tareasUsuario, t] }))
+        saveTareaUsuario(t).catch(console.error)
+        return id
+      },
+      updateTareaUsuario: (id, data) => {
+        set(s => ({
+          tareasUsuario: s.tareasUsuario.map(t => t.id === id ? { ...t, ...data, updatedAt: new Date().toISOString() } : t)
+        }))
+        const updated = get().tareasUsuario.find(t => t.id === id)
+        if (updated) saveTareaUsuario(updated).catch(console.error)
+      },
+      deleteTareaUsuario: (id) => {
+        const userId = get().currentUser?.id || ''
+        set(s => ({ tareasUsuario: s.tareasUsuario.filter(t => t.id !== id) }))
+        deleteTareaUsuarioDoc(userId, id).catch(console.error)
       },
 
       trabajos: [],
