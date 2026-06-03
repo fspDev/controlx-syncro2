@@ -57,11 +57,19 @@ export function ProyectosPage() {
   const { eventos, clientes, usuarios, addEvento } = useAppStore()
   const navigate = useNavigate()
   const [showNew, setShowNew] = useState(false)
-  const [filterEstado, setFilterEstado] = useState<EventoEstado | ''>('')
+  const [filterEstados, setFilterEstados] = useState<Set<EventoEstado>>(new Set())
   const [filterCliente, setFilterCliente] = useState('')
 
+  const toggleEstado = (estado: EventoEstado) => {
+    setFilterEstados(prev => {
+      const next = new Set(prev)
+      next.has(estado) ? next.delete(estado) : next.add(estado)
+      return next
+    })
+  }
+
   const filtered = eventos.filter(e => {
-    if (filterEstado && e.estado !== filterEstado) return false
+    if (filterEstados.size > 0 && !filterEstados.has(e.estado)) return false
     if (filterCliente && e.clienteId !== filterCliente) return false
     return true
   }).sort((a, b) => {
@@ -85,30 +93,43 @@ export function ProyectosPage() {
       </div>
 
       {/* Filtros */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <Filter size={14} className="text-gray-500" />
-        <select
-          value={filterEstado}
-          onChange={e => setFilterEstado(e.target.value as EventoEstado | '')}
-          className="bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-1.5 text-sm text-gray-300 focus:outline-none cursor-pointer"
-        >
-          <option value="">Todos los estados</option>
-          {ESTADOS_EVENTO.map(e => <option key={e} value={e}>{estadoLabel(e)}</option>)}
-        </select>
-        <select
-          value={filterCliente}
-          onChange={e => setFilterCliente(e.target.value)}
-          className="bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-1.5 text-sm text-gray-300 focus:outline-none cursor-pointer"
-        >
-          <option value="">Todos los clientes</option>
-          {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-        </select>
-        {(filterEstado || filterCliente) && (
-          <button onClick={() => { setFilterEstado(''); setFilterCliente('') }} className="text-xs text-gray-500 hover:text-brand-400 cursor-pointer">
-            Limpiar
-          </button>
-        )}
-        <span className="ml-auto text-xs text-gray-600">{filtered.length} evento{filtered.length !== 1 ? 's' : ''}</span>
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-3 flex-wrap">
+          <Filter size={14} className="text-gray-500 shrink-0" />
+          {ESTADOS_EVENTO.map(estado => {
+            const cols = ESTADO_COLORS[estado]
+            const active = filterEstados.has(estado)
+            return (
+              <button
+                key={estado}
+                onClick={() => toggleEstado(estado)}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all cursor-pointer ${
+                  active
+                    ? `${cols.bg} ${cols.text} border-transparent`
+                    : 'bg-transparent text-gray-500 border-[var(--border)] hover:border-gray-500'
+                }`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${active ? cols.dot : 'bg-gray-600'}`} />
+                {estadoLabel(estado)}
+              </button>
+            )
+          })}
+          <div className="h-4 w-px bg-[var(--border)]" />
+          <select
+            value={filterCliente}
+            onChange={e => setFilterCliente(e.target.value)}
+            className="bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-1.5 text-sm text-gray-300 focus:outline-none cursor-pointer"
+          >
+            <option value="">Todos los clientes</option>
+            {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+          </select>
+          {(filterEstados.size > 0 || filterCliente) && (
+            <button onClick={() => { setFilterEstados(new Set()); setFilterCliente('') }} className="text-xs text-gray-500 hover:text-brand-400 cursor-pointer">
+              Limpiar
+            </button>
+          )}
+          <span className="ml-auto text-xs text-gray-600">{filtered.length} evento{filtered.length !== 1 ? 's' : ''}</span>
+        </div>
       </div>
 
       {/* Tabla */}
