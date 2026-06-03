@@ -124,7 +124,7 @@ export interface TareaUsuario {
   eventoId?: string        // link opcional a un proyecto
   fechaVencimiento?: string
   userId: string           // creador/dueño
-  compartidaCon: string[]  // userIds con acceso compartido
+  compartidaCon?: string[] // userIds con acceso compartido
   createdAt: string
   updatedAt: string
 }
