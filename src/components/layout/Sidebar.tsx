@@ -38,7 +38,7 @@ export function Sidebar() {
       sidebarOpen ? 'w-52' : '-translate-x-full lg:translate-x-0 lg:w-14'
     )}>
       {/* Logo */}
-      <div className={cn('flex items-center gap-3 px-4 py-4 border-b border-[var(--border-s)]', !sidebarOpen && 'lg:justify-center lg:px-0')}>
+      <div className={cn('flex items-center gap-3 px-4 h-12 shrink-0 border-b border-[var(--border-s)]', !sidebarOpen && 'lg:justify-center lg:px-0')}>
         <Link to="/dashboard">
           <img src={logoSrc} alt="Logo" className="h-8 w-auto object-contain shrink-0 cursor-pointer" />
         </Link>
