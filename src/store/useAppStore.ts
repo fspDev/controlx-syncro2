@@ -314,7 +314,7 @@ export const useAppStore = create<AppState>()(
         const id = genId()
         const now = new Date().toISOString()
         const userId = get().currentUser?.id || ''
-        const t: TareaUsuario = { ...data, id, userId, createdAt: now, updatedAt: now }
+        const t: TareaUsuario = { compartidaCon: [], ...data, id, userId, createdAt: now, updatedAt: now }
         set(s => ({ tareasUsuario: [...s.tareasUsuario, t] }))
         saveTareaUsuario(t).catch(console.error)
         return id

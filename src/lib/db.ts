@@ -5,6 +5,8 @@ import {
   setDoc,
   deleteDoc,
   getDoc,
+  query,
+  where,
   Timestamp,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
@@ -245,29 +247,43 @@ function tareaUsuarioFromFirestore(id: string, data: Record<string, unknown>): T
     eventoId: (data.eventoId as string) || undefined,
     fechaVencimiento: tsToIso(data.fechaVencimiento) || undefined,
     userId: (data.userId as string) || '',
+    compartidaCon: Array.isArray(data.compartidaCon) ? (data.compartidaCon as string[]) : [],
     createdAt: tsToIso(data.createdAt) || new Date().toISOString(),
     updatedAt: tsToIso(data.updatedAt) || new Date().toISOString(),
   }
 }
 
 export async function fetchTareasUsuario(userId: string): Promise<TareaUsuario[]> {
-  const snap = await getDocs(collection(db, 'tareas', userId, 'items'))
-  return snap.docs.map(d => tareaUsuarioFromFirestore(d.id, d.data() as Record<string, unknown>))
+  // Tareas propias + tareas compartidas con este usuario
+  const col = collection(db, 'tareas_usuario')
+  const [propiasSnap, compartidasSnap] = await Promise.all([
+    getDocs(query(col, where('userId', '==', userId))),
+    getDocs(query(col, where('compartidaCon', 'array-contains', userId))),
+  ])
+  const seen = new Set<string>()
+  const results: TareaUsuario[] = []
+  for (const d of [...propiasSnap.docs, ...compartidasSnap.docs]) {
+    if (seen.has(d.id)) continue
+    seen.add(d.id)
+    results.push(tareaUsuarioFromFirestore(d.id, d.data() as Record<string, unknown>))
+  }
+  return results
 }
 
 export async function saveTareaUsuario(t: TareaUsuario): Promise<void> {
-  await setDoc(doc(db, 'tareas', t.userId, 'items', t.id), {
+  await setDoc(doc(db, 'tareas_usuario', t.id), {
     titulo: t.titulo,
     completada: t.completada,
     prioridad: t.prioridad,
     eventoId: t.eventoId || null,
     fechaVencimiento: t.fechaVencimiento || null,
     userId: t.userId,
+    compartidaCon: t.compartidaCon,
     createdAt: t.createdAt,
     updatedAt: new Date().toISOString(),
   })
 }
 
-export async function deleteTareaUsuarioDoc(userId: string, tareaId: string): Promise<void> {
-  await deleteDoc(doc(db, 'tareas', userId, 'items', tareaId))
+export async function deleteTareaUsuarioDoc(_userId: string, tareaId: string): Promise<void> {
+  await deleteDoc(doc(db, 'tareas_usuario', tareaId))
 }

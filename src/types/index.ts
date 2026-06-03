@@ -121,9 +121,10 @@ export interface TareaUsuario {
   titulo: string
   completada: boolean
   prioridad: TareaUsuarioPrioridad
-  eventoId?: string   // link opcional a un proyecto
+  eventoId?: string        // link opcional a un proyecto
   fechaVencimiento?: string
-  userId: string
+  userId: string           // creador/dueño
+  compartidaCon: string[]  // userIds con acceso compartido
   createdAt: string
   updatedAt: string
 }
