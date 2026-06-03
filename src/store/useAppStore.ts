@@ -184,13 +184,27 @@ export const useAppStore = create<AppState>()(
           if (r.status === 'rejected') console.error(`[data] ${names[i]} failed:`, r.reason?.code || r.reason)
           else console.log(`[data] ${names[i]} loaded: ${(r.value as unknown[]).length ?? '?'} items`)
         })
+        // Merge Firestore tareas with localStorage: Firestore wins on conflict (newer updatedAt),
+        // but localStorage items missing from Firestore are kept (handles rules-blocked writes)
+        const localTareas = get().tareasUsuario
+        const remoteTareas = tareasUsuarioR.status === 'fulfilled' ? tareasUsuarioR.value : []
+        const mergedTareas: TareaUsuario[] = [...localTareas]
+        for (const remote of remoteTareas) {
+          const idx = mergedTareas.findIndex(t => t.id === remote.id)
+          if (idx === -1) {
+            mergedTareas.push(remote)
+          } else if (remote.updatedAt > mergedTareas[idx].updatedAt) {
+            mergedTareas[idx] = remote
+          }
+        }
+
         set({
           eventos:         eventosR.status        === 'fulfilled' ? eventosR.value        : [],
           clientes:        clientesR.status       === 'fulfilled' ? clientesR.value       : [],
           trabajos:        trabajosR.status       === 'fulfilled' ? trabajosR.value       : [],
           usuarios:        usuariosR.status       === 'fulfilled' ? usuariosR.value       : [],
           tareasPlantilla: tareasR.status         === 'fulfilled' ? tareasR.value         : get().tareasPlantilla,
-          tareasUsuario:   tareasUsuarioR.status  === 'fulfilled' ? tareasUsuarioR.value  : [],
+          tareasUsuario:   mergedTareas,
           dataLoading: false,
         })
       },
