@@ -1,0 +1,53 @@
+name: Build Agente EXE
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'agente-local.cjs'
+      - '.github/workflows/build-agente.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install pkg
+        run: npm install -g pkg
+
+      - name: Build exe
+        run: pkg agente-local.cjs --target node18-win-x64 --output agente-controlx.exe
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: agente-controlx
+          path: agente-controlx.exe
+          retention-days: 90
+
+      - name: Create/update release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: agente-latest
+          name: Agente Control X (última versión)
+          body: |
+            ## Agente Central de Red — Control X Syncro
+
+            Descargá `agente-controlx.exe` y ejecutalo en el servidor de archivos.
+            No requiere Node.js instalado.
+
+            **Instrucciones:**
+            1. Copiá `agente-controlx.exe` al servidor
+            2. Doble clic para ejecutarlo (o como servicio de Windows)
+            3. Anotá la URL que muestra en consola (ej: `http://192.168.1.10:3001`)
+            4. Configurá esa URL en la app: **Admin → Agente de Red**
+          files: agente-controlx.exe
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

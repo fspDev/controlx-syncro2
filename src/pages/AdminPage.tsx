@@ -26,8 +26,9 @@ const EMPTY: FormState = { username: '', displayName: '', rol: 'user', password:
 export function AdminPage() {
   const { currentUser, usuarios, addUsuario, updateUsuario, deleteUsuario,
     tareasPlantilla, addTareaPlantilla, updateTareaPlantilla, deleteTareaPlantilla,
-    carpetaBase, setCarpetaBase } = useAppStore()
+    carpetaBase, setCarpetaBase, agenteUrl, setAgenteUrl } = useAppStore()
   const [carpetaBaseInput, setCarpetaBaseInput] = useState(carpetaBase)
+  const [agenteUrlInput, setAgenteUrlInput] = useState(agenteUrl)
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
@@ -181,37 +182,66 @@ export function AdminPage() {
         </div>
       </div>
 
-      {/* Carpeta base compartida */}
+      {/* Configuración del Agente */}
       <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl overflow-hidden">
         <div className="px-5 py-4 border-b border-[var(--border)] flex items-center gap-3">
-          <Folder size={15} className="text-amber-400" />
+          <Folder size={15} className="text-brand-400" />
           <div>
-            <h2 className="text-sm font-semibold text-gray-300">Carpeta Compartida Base</h2>
-            <p className="text-xs text-gray-600 mt-0.5">Ruta de red desde donde se exploran las carpetas de proyectos</p>
+            <h2 className="text-sm font-semibold text-gray-300">Agente de Red</h2>
+            <p className="text-xs text-gray-600 mt-0.5">URL del agente central que corre en el servidor</p>
           </div>
         </div>
-        <div className="px-5 py-4 flex gap-2">
-          <input
-            value={carpetaBaseInput}
-            onChange={e => setCarpetaBaseInput(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter' && carpetaBaseInput.trim()) setCarpetaBase(carpetaBaseInput.trim()) }}
-            placeholder="\\servidor\proyectos"
-            className="flex-1 bg-[var(--bg)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm font-mono text-gray-300 placeholder:text-gray-600 focus:border-brand-500/50 focus:outline-none transition-all"
-          />
-          <Button
-            variant="primary"
-            size="sm"
-            disabled={!carpetaBaseInput.trim() || carpetaBaseInput === carpetaBase}
-            onClick={() => setCarpetaBase(carpetaBaseInput.trim())}
-          >
-            <Check size={13} /> Guardar
-          </Button>
-        </div>
-        {carpetaBase && (
-          <p className="px-5 pb-3 text-xs text-emerald-400">
-            ✓ Configurada: <span className="font-mono">{carpetaBase}</span>
+        <div className="px-5 py-4 space-y-3">
+          <div className="flex gap-2">
+            <input
+              value={agenteUrlInput}
+              onChange={e => setAgenteUrlInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && agenteUrlInput.trim()) setAgenteUrl(agenteUrlInput.trim()) }}
+              placeholder="http://192.168.1.10:3001"
+              className="flex-1 bg-[var(--bg)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm font-mono text-gray-300 placeholder:text-gray-600 focus:border-brand-500/50 focus:outline-none transition-all"
+            />
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={!agenteUrlInput.trim() || agenteUrlInput === agenteUrl}
+              onClick={() => setAgenteUrl(agenteUrlInput.trim())}
+            >
+              <Check size={13} /> Guardar
+            </Button>
+          </div>
+          <p className="text-xs text-gray-600">
+            Iniciá <span className="font-mono text-gray-400">agente-controlx.exe</span> en el servidor y copiá la URL que muestra en consola.
+            {agenteUrl && agenteUrl !== 'http://localhost:3001' && (
+              <span className="block text-emerald-400 mt-1">✓ Configurado: <span className="font-mono">{agenteUrl}</span></span>
+            )}
           </p>
-        )}
+        </div>
+
+        <div className="px-5 pb-4 border-t border-[var(--border)] pt-4 space-y-2">
+          <p className="text-xs font-medium text-gray-400 flex items-center gap-2">
+            <Folder size={12} className="text-amber-400" /> Carpeta Compartida Base
+          </p>
+          <div className="flex gap-2">
+            <input
+              value={carpetaBaseInput}
+              onChange={e => setCarpetaBaseInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && carpetaBaseInput.trim()) setCarpetaBase(carpetaBaseInput.trim()) }}
+              placeholder="\\servidor\proyectos"
+              className="flex-1 bg-[var(--bg)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm font-mono text-gray-300 placeholder:text-gray-600 focus:border-brand-500/50 focus:outline-none transition-all"
+            />
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={!carpetaBaseInput.trim() || carpetaBaseInput === carpetaBase}
+              onClick={() => setCarpetaBase(carpetaBaseInput.trim())}
+            >
+              <Check size={13} /> Guardar
+            </Button>
+          </div>
+          {carpetaBase && (
+            <p className="text-xs text-emerald-400">✓ <span className="font-mono">{carpetaBase}</span></p>
+          )}
+        </div>
       </div>
 
       {/* Roles info */}

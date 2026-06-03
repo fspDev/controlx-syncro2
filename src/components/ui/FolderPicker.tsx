@@ -8,12 +8,13 @@ interface FolderItem {
 
 interface FolderPickerProps {
   basePath: string          // carpeta raíz configurada
+  agenteUrl: string         // URL del agente central
   onSelect: (path: string) => void
   onCancel: () => void
   current?: string          // ruta actualmente asignada
 }
 
-export function FolderPicker({ basePath, onSelect, onCancel, current }: FolderPickerProps) {
+export function FolderPicker({ basePath, agenteUrl, onSelect, onCancel, current }: FolderPickerProps) {
   const [historial, setHistorial] = useState<string[]>([basePath])
   const [carpetaActual, setCarpetaActual] = useState(basePath)
   const [subcarpetas, setSubcarpetas] = useState<FolderItem[]>([])
@@ -25,7 +26,7 @@ export function FolderPicker({ basePath, onSelect, onCancel, current }: FolderPi
     setLoading(true)
     setError('')
     try {
-      const res = await fetch(`http://localhost:3001/browse?path=${encodeURIComponent(ruta)}`)
+      const res = await fetch(`${agenteUrl}/browse?path=${encodeURIComponent(ruta)}`)
       const data = await res.json()
       if (data.ok) {
         setSubcarpetas(data.folders)

@@ -18,7 +18,7 @@ const MAX_RENDERS = 3
 export function EventoDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { eventos, clientes, usuarios, updateEvento, deleteEvento, addTarea, updateTarea, deleteTarea, tareasUsuario, addTareaUsuario, updateTareaUsuario, deleteTareaUsuario, carpetaBase } = useAppStore()
+  const { eventos, clientes, usuarios, updateEvento, deleteEvento, addTarea, updateTarea, deleteTarea, tareasUsuario, addTareaUsuario, updateTareaUsuario, deleteTareaUsuario, carpetaBase, agenteUrl } = useAppStore()
 
   const evento = eventos.find(e => e.id === id)
   const [showEdit, setShowEdit] = useState(false)
@@ -99,7 +99,7 @@ export function EventoDetailPage() {
   const openCarpeta = async (path: string) => {
     setCarpetaStatus('idle')
     try {
-      const res = await fetch(`http://localhost:3001/open?path=${encodeURIComponent(path)}`)
+      const res = await fetch(`${agenteUrl}/open?path=${encodeURIComponent(path)}`)
       const data = await res.json()
       if (data.ok) {
         setCarpetaStatus('ok')
@@ -510,6 +510,7 @@ export function EventoDetailPage() {
               <div className="mt-3 pt-3 border-t border-[var(--border)]">
                 <FolderPicker
                   basePath={carpetaBase}
+                  agenteUrl={agenteUrl}
                   current={carpetaGuardada}
                   onSelect={(path) => {
                     updateEvento(evento.id, { carpetaServidor: path })

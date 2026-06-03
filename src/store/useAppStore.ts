@@ -58,7 +58,9 @@ interface AppState {
   updateTarea: (eventoId: string, tareaId: string, data: Partial<Tarea>) => void
   deleteTarea: (eventoId: string, tareaId: string) => void
 
-  // Carpeta Base compartida
+  // Agente y Carpeta Base
+  agenteUrl: string
+  setAgenteUrl: (url: string) => void
   carpetaBase: string
   setCarpetaBase: (path: string) => void
 
@@ -306,6 +308,9 @@ export const useAppStore = create<AppState>()(
         if (updated) saveEvento(updated).catch(console.error)
       },
 
+      agenteUrl: 'http://localhost:3001',
+      setAgenteUrl: (url) => set({ agenteUrl: url }),
+
       carpetaBase: '',
       setCarpetaBase: (path) => {
         set({ carpetaBase: path })
@@ -492,6 +497,7 @@ export const useAppStore = create<AppState>()(
         tareasPlantilla: s.tareasPlantilla,
         tareasUsuario: s.tareasUsuario,
         carpetaBase: s.carpetaBase,
+        agenteUrl: s.agenteUrl,
         sidebarOpen: s.sidebarOpen,
         theme: s.theme,
       }),
