@@ -6,7 +6,7 @@ import { Dialog, ConfirmDialog } from '@/components/ui/Dialog'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import type { UserRol, Usuario } from '@/types'
-import { Plus, Edit2, Trash2, Shield, ClipboardList, GripVertical, Check, X } from 'lucide-react'
+import { Plus, Edit2, Trash2, Shield, ClipboardList, GripVertical, Check, X, Folder } from 'lucide-react'
 
 const ROL_OPTS = [
   { value: 'admin', label: 'Administrador' },
@@ -25,7 +25,9 @@ const EMPTY: FormState = { username: '', displayName: '', rol: 'user', password:
 
 export function AdminPage() {
   const { currentUser, usuarios, addUsuario, updateUsuario, deleteUsuario,
-    tareasPlantilla, addTareaPlantilla, updateTareaPlantilla, deleteTareaPlantilla } = useAppStore()
+    tareasPlantilla, addTareaPlantilla, updateTareaPlantilla, deleteTareaPlantilla,
+    carpetaBase, setCarpetaBase } = useAppStore()
+  const [carpetaBaseInput, setCarpetaBaseInput] = useState(carpetaBase)
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
@@ -177,6 +179,39 @@ export function AdminPage() {
             <Plus size={13} /> Agregar
           </Button>
         </div>
+      </div>
+
+      {/* Carpeta base compartida */}
+      <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-[var(--border)] flex items-center gap-3">
+          <Folder size={15} className="text-amber-400" />
+          <div>
+            <h2 className="text-sm font-semibold text-gray-300">Carpeta Compartida Base</h2>
+            <p className="text-xs text-gray-600 mt-0.5">Ruta de red desde donde se exploran las carpetas de proyectos</p>
+          </div>
+        </div>
+        <div className="px-5 py-4 flex gap-2">
+          <input
+            value={carpetaBaseInput}
+            onChange={e => setCarpetaBaseInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && carpetaBaseInput.trim()) setCarpetaBase(carpetaBaseInput.trim()) }}
+            placeholder="\\servidor\proyectos"
+            className="flex-1 bg-[var(--bg)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm font-mono text-gray-300 placeholder:text-gray-600 focus:border-brand-500/50 focus:outline-none transition-all"
+          />
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={!carpetaBaseInput.trim() || carpetaBaseInput === carpetaBase}
+            onClick={() => setCarpetaBase(carpetaBaseInput.trim())}
+          >
+            <Check size={13} /> Guardar
+          </Button>
+        </div>
+        {carpetaBase && (
+          <p className="px-5 pb-3 text-xs text-emerald-400">
+            ✓ Configurada: <span className="font-mono">{carpetaBase}</span>
+          </p>
+        )}
       </div>
 
       {/* Roles info */}

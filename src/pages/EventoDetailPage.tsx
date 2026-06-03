@@ -9,15 +9,16 @@ import { Input } from '@/components/ui/Input'
 import { formatDate } from '@/lib/utils'
 import {
   ArrowLeft, Edit2, Trash2, Plus, Check, X, Calendar, MapPin,
-  Hammer, User, CheckSquare, ImagePlus, Folder, FolderOpen, Copy, LayoutTemplate
+  Hammer, User, CheckSquare, ImagePlus, Folder, FolderOpen, Copy, LayoutTemplate, Search
 } from 'lucide-react'
+import { FolderPicker } from '@/components/ui/FolderPicker'
 
 const MAX_RENDERS = 3
 
 export function EventoDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { eventos, clientes, usuarios, updateEvento, deleteEvento, addTarea, updateTarea, deleteTarea, tareasUsuario, addTareaUsuario, updateTareaUsuario, deleteTareaUsuario } = useAppStore()
+  const { eventos, clientes, usuarios, updateEvento, deleteEvento, addTarea, updateTarea, deleteTarea, tareasUsuario, addTareaUsuario, updateTareaUsuario, deleteTareaUsuario, carpetaBase } = useAppStore()
 
   const evento = eventos.find(e => e.id === id)
   const [showEdit, setShowEdit] = useState(false)
@@ -27,6 +28,7 @@ export function EventoDetailPage() {
   const [deleteTareaId, setDeleteTareaId] = useState<string | null>(null)
   const [lightboxImg, setLightboxImg] = useState<string | null>(null)
   const [newMiTarea, setNewMiTarea] = useState('')
+  const [showFolderPicker, setShowFolderPicker] = useState(false)
   const [carpeta, setCarpeta] = useState('')
   const [carpetaCopied, setCarpetaCopied] = useState(false)
   const [carpetaStatus, setCarpetaStatus] = useState<'idle' | 'ok' | 'error'>('idle')
@@ -448,15 +450,42 @@ export function EventoDetailPage() {
                     <Copy size={13} /> {carpetaCopied ? '¡Copiado!' : 'Copiar'}
                   </button>
                 </div>
-                <button
-                  onClick={removeCarpeta}
-                  className="w-full text-xs text-gray-600 hover:text-red-400 cursor-pointer transition-colors text-center py-1"
-                >
-                  Quitar carpeta
-                </button>
+                <div className="flex gap-2">
+                  {carpetaBase && (
+                    <button
+                      onClick={() => setShowFolderPicker(true)}
+                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-[var(--surface-2)] hover:bg-[var(--surface-2h)] border border-[var(--border)] text-gray-500 text-xs rounded-lg cursor-pointer transition-all"
+                    >
+                      <Search size={11} /> Cambiar
+                    </button>
+                  )}
+                  <button
+                    onClick={removeCarpeta}
+                    className="flex-1 text-xs text-gray-600 hover:text-red-400 cursor-pointer transition-colors text-center py-1.5"
+                  >
+                    Quitar carpeta
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="space-y-2">
+                {carpetaBase ? (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      onClick={() => setShowFolderPicker(true)}
+                      className="w-full justify-center"
+                    >
+                      <Search size={13} /> Seleccionar carpeta
+                    </Button>
+                    <p className="text-xs text-gray-600 text-center">o ingresá la ruta manualmente</p>
+                  </>
+                ) : (
+                  <p className="text-xs text-amber-400/80 text-center py-1">
+                    Configurá la carpeta base en Admin para poder explorar
+                  </p>
+                )}
                 <input
                   value={carpeta}
                   onChange={e => setCarpeta(e.target.value)}
@@ -471,8 +500,23 @@ export function EventoDetailPage() {
                   disabled={!carpeta.trim()}
                   className="w-full justify-center"
                 >
-                  <Folder size={13} /> Asignar carpeta
+                  <Folder size={13} /> Asignar ruta
                 </Button>
+              </div>
+            )}
+
+            {/* Folder Picker */}
+            {showFolderPicker && carpetaBase && (
+              <div className="mt-3 pt-3 border-t border-[var(--border)]">
+                <FolderPicker
+                  basePath={carpetaBase}
+                  current={carpetaGuardada}
+                  onSelect={(path) => {
+                    updateEvento(evento.id, { carpetaServidor: path })
+                    setShowFolderPicker(false)
+                  }}
+                  onCancel={() => setShowFolderPicker(false)}
+                />
               </div>
             )}
           </div>

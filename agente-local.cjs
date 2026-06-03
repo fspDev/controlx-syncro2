@@ -8,6 +8,8 @@
 const http = require('http')
 const { exec } = require('child_process')
 const { parse } = require('url')
+const fs = require('fs')
+const path = require('path')
 
 const PORT = 3001
 
@@ -48,6 +50,28 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ ok: true }))
       }
     })
+    return
+  }
+
+  // GET /browse?path=\\servidor\proyectos — lista subcarpetas de un directorio
+  if (pathname === '/browse' && query.path) {
+    const dirPath = String(query.path)
+    console.log(`[${new Date().toLocaleTimeString()}] Listando: ${dirPath}`)
+    try {
+      const entries = fs.readdirSync(dirPath, { withFileTypes: true })
+      const folders = entries
+        .filter(e => e.isDirectory())
+        .map(e => ({
+          name: e.name,
+          path: path.join(dirPath, e.name),
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }))
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ ok: true, folders, current: dirPath }))
+    } catch (err) {
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ ok: false, error: err.message, folders: [] }))
+    }
     return
   }
 

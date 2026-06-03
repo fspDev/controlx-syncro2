@@ -13,6 +13,7 @@ import {
   fetchClientes, saveCliente, deleteClienteDoc,
   fetchTareasPlantilla, saveTareasPlantilla,
   fetchTareasUsuario, saveTareaUsuario, deleteTareaUsuarioDoc,
+  fetchCarpetaBase, saveCarpetaBase,
   getUsuarioByUid,
   userFromFirestore,
 } from '@/lib/db'
@@ -56,6 +57,10 @@ interface AppState {
   addTarea: (eventoId: string, tarea: Omit<Tarea, 'id' | 'createdAt'>) => void
   updateTarea: (eventoId: string, tareaId: string, data: Partial<Tarea>) => void
   deleteTarea: (eventoId: string, tareaId: string) => void
+
+  // Carpeta Base compartida
+  carpetaBase: string
+  setCarpetaBase: (path: string) => void
 
   // Tareas Plantilla
   tareasPlantilla: TareaPlantilla[]
@@ -171,16 +176,17 @@ export const useAppStore = create<AppState>()(
       loadAllData: async () => {
         set({ dataLoading: true })
         const userId = get().currentUser?.id || ''
-        const [eventosR, clientesR, trabajosR, usuariosR, tareasR, tareasUsuarioR] = await Promise.allSettled([
+        const [eventosR, clientesR, trabajosR, usuariosR, tareasR, tareasUsuarioR, carpetaBaseR] = await Promise.allSettled([
           fetchEventos(),
           fetchClientes(),
           fetchTrabajos(),
           fetchUsuarios(),
           fetchTareasPlantilla(),
           userId ? fetchTareasUsuario(userId) : Promise.resolve([]),
+          fetchCarpetaBase(),
         ])
-        const names = ['eventos', 'clientes', 'trabajos', 'usuarios', 'tareasPlantilla', 'tareasUsuario']
-        ;[eventosR, clientesR, trabajosR, usuariosR, tareasR, tareasUsuarioR].forEach((r, i) => {
+        const names = ['eventos', 'clientes', 'trabajos', 'usuarios', 'tareasPlantilla', 'tareasUsuario', 'carpetaBase']
+        ;[eventosR, clientesR, trabajosR, usuariosR, tareasR, tareasUsuarioR, carpetaBaseR].forEach((r, i) => {
           if (r.status === 'rejected') console.error(`[data] ${names[i]} failed:`, r.reason?.code || r.reason)
           else console.log(`[data] ${names[i]} loaded: ${(r.value as unknown[]).length ?? '?'} items`)
         })
@@ -205,6 +211,7 @@ export const useAppStore = create<AppState>()(
           usuarios:        usuariosR.status       === 'fulfilled' ? usuariosR.value       : [],
           tareasPlantilla: tareasR.status         === 'fulfilled' ? tareasR.value         : get().tareasPlantilla,
           tareasUsuario:   mergedTareas,
+          carpetaBase:     carpetaBaseR.status    === 'fulfilled' ? carpetaBaseR.value    : get().carpetaBase,
           dataLoading: false,
         })
       },
@@ -297,6 +304,12 @@ export const useAppStore = create<AppState>()(
         }))
         const updated = get().eventos.find(e => e.id === eventoId)
         if (updated) saveEvento(updated).catch(console.error)
+      },
+
+      carpetaBase: '',
+      setCarpetaBase: (path) => {
+        set({ carpetaBase: path })
+        saveCarpetaBase(path).catch(console.error)
       },
 
       tareasPlantilla: [],
@@ -478,6 +491,7 @@ export const useAppStore = create<AppState>()(
         planillas: s.planillas,
         tareasPlantilla: s.tareasPlantilla,
         tareasUsuario: s.tareasUsuario,
+        carpetaBase: s.carpetaBase,
         sidebarOpen: s.sidebarOpen,
         theme: s.theme,
       }),

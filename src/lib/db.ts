@@ -236,6 +236,18 @@ export async function saveTareasPlantilla(tareas: TareaPlantilla[]): Promise<voi
   await setDoc(doc(db, 'config', 'tareasPlantilla'), { list: tareas })
 }
 
+// ─── Carpeta Base ─────────────────────────────────────────────────────────────
+
+export async function fetchCarpetaBase(): Promise<string> {
+  const snap = await getDoc(doc(db, 'config', 'carpetaBase'))
+  if (!snap.exists()) return ''
+  return (snap.data() as { path?: string }).path || ''
+}
+
+export async function saveCarpetaBase(path: string): Promise<void> {
+  await setDoc(doc(db, 'config', 'carpetaBase'), { path })
+}
+
 // ─── Tareas de Usuario ────────────────────────────────────────────────────────
 
 function tareaUsuarioFromFirestore(id: string, data: Record<string, unknown>): TareaUsuario {
