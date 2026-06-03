@@ -24,6 +24,7 @@ export function MisTareasPage() {
   const [filtroEvento, setFiltroEvento] = useState('')
 
   const otrosUsuarios = usuarios.filter(u => u.id !== currentUser?.id)
+  const eventosActivos = eventos.filter(e => e.estado !== 'Finalizado' && e.estado !== 'Cancelado')
 
   const tareasFiltradas = tareasUsuario
     .filter(t => {
@@ -119,7 +120,7 @@ export function MisTareasPage() {
               className="bg-[var(--bg)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-xs text-gray-300 focus:outline-none cursor-pointer flex-1"
             >
               <option value="">Sin proyecto</option>
-              {eventos.map(ev => <option key={ev.id} value={ev.id}>{ev.titulo}</option>)}
+              {eventosActivos.map(ev => <option key={ev.id} value={ev.id}>{ev.titulo}</option>)}
             </select>
             <input
               type="date"
@@ -196,7 +197,7 @@ export function MisTareasPage() {
           className="bg-transparent border-none text-xs text-gray-500 focus:outline-none cursor-pointer"
         >
           <option value="">Todos los proyectos</option>
-          {eventos.map(ev => <option key={ev.id} value={ev.id}>{ev.titulo}</option>)}
+          {eventosActivos.map(ev => <option key={ev.id} value={ev.id}>{ev.titulo}</option>)}
         </select>
         <span className="ml-auto text-xs text-gray-600">{tareasFiltradas.length} tarea{tareasFiltradas.length !== 1 ? 's' : ''}</span>
       </div>
