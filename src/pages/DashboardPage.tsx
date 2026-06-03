@@ -3,13 +3,19 @@ import { useAppStore } from '@/store/useAppStore'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { ESTADO_COLORS, estadoLabel, formatDate } from '@/lib/utils'
-import type { EventoEstado } from '@/types'
-import { FolderKanban, CheckCircle2, Clock, AlertCircle, Users } from 'lucide-react'
+import type { EventoEstado, TareaUsuarioPrioridad } from '@/types'
+import { FolderKanban, CheckCircle2, Clock, AlertCircle, Users, Flag } from 'lucide-react'
+
+const PRIORIDAD_COLORS: Record<TareaUsuarioPrioridad, { text: string; label: string }> = {
+  alta:  { text: 'text-red-400',   label: 'Alta' },
+  media: { text: 'text-amber-400', label: 'Media' },
+  baja:  { text: 'text-gray-500',  label: 'Baja' },
+}
 
 const ESTADO_ORDER: EventoEstado[] = ['Negociacion', 'Confirmado', 'Armado', 'Finalizado', 'Cancelado']
 
 export function DashboardPage() {
-  const { eventos, clientes, currentUser } = useAppStore()
+  const { eventos, clientes, currentUser, tareasUsuario } = useAppStore()
   const navigate = useNavigate()
 
   const today = new Date()
@@ -25,10 +31,26 @@ export function DashboardPage() {
     return acc
   }, {} as Record<EventoEstado, number>)
 
-  // Solo tareas del usuario actual sin completar
-  const tareasPropias = eventos.flatMap(e =>
-    e.tareas.filter(t => !t.completada && t.responsableId === currentUser?.id)
+  // Tareas de proyecto asignadas al usuario actual
+  const tareasDeProyecto = eventos.flatMap(e =>
+    e.tareas
+      .filter(t => !t.completada && t.responsableId === currentUser?.id)
+      .map(t => ({ ...t, eventoTitulo: e.titulo, eventoId: e.id, tipo: 'proyecto' as const }))
   )
+
+  // Tareas personales pendientes del usuario actual
+  const tareasPersonalesPend = tareasUsuario
+    .filter(t => !t.completada)
+    .map(t => {
+      const ev = t.eventoId ? eventos.find(e => e.id === t.eventoId) : undefined
+      return { ...t, eventoTitulo: ev?.titulo, tipo: 'personal' as const }
+    })
+    .sort((a, b) => {
+      const ord: Record<TareaUsuarioPrioridad, number> = { alta: 0, media: 1, baja: 2 }
+      return ord[a.prioridad] - ord[b.prioridad]
+    })
+
+  const totalTareasPendientes = tareasDeProyecto.length + tareasPersonalesPend.length
 
   const proxArmados = eventos
     .filter(e => e.armadoInicio && e.estado !== 'Cancelado' && e.estado !== 'Finalizado')
@@ -59,14 +81,15 @@ export function DashboardPage() {
             <div className="p-2 bg-brand-500/15 rounded-lg"><FolderKanban size={18} className="text-brand-400" /></div>
           </div>
         </Card>
-        <Card className="p-4">
+        <Card className="p-4 cursor-pointer hover:border-[var(--border-h)] transition-colors" onClick={() => navigate('/mis-tareas')}>
           <div className="flex items-start justify-between">
             <div>
               <p className="text-xs text-gray-500 mb-1">Mis tareas pendientes</p>
-              <p className="text-2xl font-bold text-gray-100">{tareasPropias.length}</p>
-              {tareasPropias.length === 0 && (
-                <p className="text-xs text-emerald-400 mt-0.5">Al día ✓</p>
-              )}
+              <p className="text-2xl font-bold text-gray-100">{totalTareasPendientes}</p>
+              {totalTareasPendientes === 0
+                ? <p className="text-xs text-emerald-400 mt-0.5">Al día ✓</p>
+                : <p className="text-xs text-gray-600 mt-0.5">{tareasPersonalesPend.length} personal · {tareasDeProyecto.length} proyecto</p>
+              }
             </div>
             <div className="p-2 bg-amber-500/15 rounded-lg"><Clock size={18} className="text-amber-400" /></div>
           </div>
@@ -159,25 +182,45 @@ export function DashboardPage() {
           )}
 
           {/* Mis tareas pendientes */}
-          {tareasPropias.length > 0 && (
+          {totalTareasPendientes > 0 && (
             <div>
-              <h2 className="text-sm font-semibold text-gray-300 mb-3">Mis tareas</h2>
-              <Card className="p-4 space-y-2">
-                {tareasPropias.slice(0, 5).map(t => {
-                  const evento = eventos.find(e => e.tareas.some(ta => ta.id === t.id))
-                  return (
-                    <div
-                      key={t.id}
-                      className="cursor-pointer"
-                      onClick={() => evento && navigate(`/proyectos/${evento.id}`)}
-                    >
-                      <p className="text-xs text-gray-400 truncate">{t.titulo}</p>
-                      {evento && <p className="text-xs text-gray-600">{evento.titulo}</p>}
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-semibold text-gray-300">Mis tareas</h2>
+                <button onClick={() => navigate('/mis-tareas')} className="text-xs text-brand-400 hover:text-brand-300 cursor-pointer transition-colors">
+                  Ver todas
+                </button>
+              </div>
+              <Card className="p-3 space-y-1">
+                {tareasPersonalesPend.slice(0, 5).map(t => (
+                  <div
+                    key={t.id}
+                    className="flex items-start gap-2 py-1.5 px-1 rounded-lg hover:bg-[var(--surface-2)] cursor-pointer transition-colors"
+                    onClick={() => t.eventoId ? navigate(`/proyectos/${t.eventoId}`) : navigate('/mis-tareas')}
+                  >
+                    <Flag size={10} className={`${PRIORIDAD_COLORS[t.prioridad].text} mt-1 shrink-0`} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-gray-300 truncate">{t.titulo}</p>
+                      {t.eventoTitulo && <p className="text-xs text-gray-600 truncate">{t.eventoTitulo}</p>}
                     </div>
-                  )
-                })}
-                {tareasPropias.length > 5 && (
-                  <p className="text-xs text-gray-600">+{tareasPropias.length - 5} más</p>
+                  </div>
+                ))}
+                {tareasDeProyecto.slice(0, Math.max(0, 5 - tareasPersonalesPend.length)).map(t => (
+                  <div
+                    key={t.id}
+                    className="flex items-start gap-2 py-1.5 px-1 rounded-lg hover:bg-[var(--surface-2)] cursor-pointer transition-colors"
+                    onClick={() => navigate(`/proyectos/${t.eventoId}`)}
+                  >
+                    <AlertCircle size={10} className="text-amber-400 mt-1 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-gray-300 truncate">{t.titulo}</p>
+                      <p className="text-xs text-gray-600 truncate">{t.eventoTitulo}</p>
+                    </div>
+                  </div>
+                ))}
+                {totalTareasPendientes > 5 && (
+                  <button onClick={() => navigate('/mis-tareas')} className="text-xs text-gray-600 hover:text-brand-400 cursor-pointer transition-colors pt-1 w-full text-left px-1">
+                    +{totalTareasPendientes - 5} más
+                  </button>
                 )}
               </Card>
             </div>
