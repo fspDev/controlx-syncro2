@@ -22,23 +22,23 @@ jobs:
           node-version: 18
 
       - name: Install pkg
-        run: npm install -g pkg
+        run: npm install -g @yao-pkg/pkg
 
       - name: Build exe (64-bit)
         run: pkg agente-local.cjs --target node18-win-x64 --output agente-controlx-x64.exe
 
       - name: Build exe (32-bit)
-        # Node dejó de publicar builds oficiales de Windows 32-bit a partir de Node 13,
-        # por eso usamos node12 (la última versión LTS con soporte win-x86) para este target.
-        run: pkg agente-local.cjs --target node12-win-x86 --output agente-controlx-x86.exe
+        # No bloquea el job si falla: @yao-pkg/pkg puede no tener un binario base
+        # pre-compilado para win-x86 disponible. Si falla, al menos se publica x64.
+        continue-on-error: true
+        run: pkg agente-local.cjs --target node18-win-x86 --output agente-controlx-x86.exe
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: agente-controlx
-          path: |
-            agente-controlx-x64.exe
-            agente-controlx-x86.exe
+          path: agente-controlx-x*.exe
+          if-no-files-found: warn
           retention-days: 90
 
       - name: Create/update release
@@ -62,9 +62,7 @@ jobs:
             2. Doble clic para ejecutarlo (o como servicio de Windows)
             3. Anotá la URL que muestra en consola (ej: `http://192.168.1.10:3001`)
             4. Configurá esa URL en la app: **Admin → Agente de Red**
-          files: |
-            agente-controlx-x64.exe
-            agente-controlx-x86.exe
+          files: agente-controlx-x*.exe
           make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
