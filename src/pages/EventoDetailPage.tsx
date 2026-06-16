@@ -9,16 +9,15 @@ import { Input } from '@/components/ui/Input'
 import { formatDate } from '@/lib/utils'
 import {
   ArrowLeft, Edit2, Trash2, Plus, Check, X, Calendar, MapPin,
-  Hammer, User, CheckSquare, ImagePlus, Folder, FolderOpen, Copy, LayoutTemplate, Search
+  Hammer, User, CheckSquare, ImagePlus, LayoutTemplate
 } from 'lucide-react'
-import { FolderPicker } from '@/components/ui/FolderPicker'
 
 const MAX_RENDERS = 3
 
 export function EventoDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { eventos, clientes, usuarios, updateEvento, deleteEvento, addTarea, updateTarea, deleteTarea, tareasUsuario, addTareaUsuario, updateTareaUsuario, deleteTareaUsuario, carpetaBase, agenteUrl } = useAppStore()
+  const { eventos, clientes, usuarios, updateEvento, deleteEvento, addTarea, updateTarea, deleteTarea, tareasUsuario, addTareaUsuario, updateTareaUsuario, deleteTareaUsuario } = useAppStore()
 
   const evento = eventos.find(e => e.id === id)
   const [showEdit, setShowEdit] = useState(false)
@@ -28,9 +27,6 @@ export function EventoDetailPage() {
   const [deleteTareaId, setDeleteTareaId] = useState<string | null>(null)
   const [lightboxImg, setLightboxImg] = useState<string | null>(null)
   const [newMiTarea, setNewMiTarea] = useState('')
-  const [showFolderPicker, setShowFolderPicker] = useState(false)
-  const [carpeta, setCarpeta] = useState('')
-  const [carpetaCopied, setCarpetaCopied] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   if (!evento) return (
@@ -41,7 +37,6 @@ export function EventoDetailPage() {
   )
 
   const renders = evento.renders || []
-  const carpetaGuardada = evento.carpetaServidor || ''
 
   const cliente = clientes.find(c => c.id === evento.clienteId)
   const responsable = usuarios.find(u => u.id === evento.responsableId)
@@ -80,30 +75,6 @@ export function EventoDetailPage() {
   const removeRender = (idx: number) => {
     const updated = (evento.renders || []).filter((_, i) => i !== idx)
     updateEvento(evento.id, { renders: updated })
-  }
-
-  const saveCarpeta = () => {
-    updateEvento(evento.id, { carpetaServidor: carpeta.trim() })
-    setCarpeta('')
-  }
-
-  const removeCarpeta = () => updateEvento(evento.id, { carpetaServidor: '' })
-
-  const copyCarpeta = async (path: string) => {
-    await navigator.clipboard.writeText(path)
-    setCarpetaCopied(true)
-    setTimeout(() => setCarpetaCopied(false), 2000)
-  }
-
-  // Convierte una ruta UNC (\\servidor\share\sub) a un link con el protocolo
-  // personalizado controlx-open://, registrado localmente en cada PC (ver
-  // registrar-protocolo.reg). Windows lo resuelve LOCALMENTE en la PC donde
-  // se hace clic — no pasa por el agente del servidor. Los navegadores
-  // bloquean la navegación directa a file:// desde una página web, por eso
-  // hace falta un protocolo propio en vez de un link file:// simple.
-  const uncToFileUri = (path: string) => {
-    const clean = path.replace(/^\\\\/, '').replace(/\\/g, '/')
-    return 'controlx-open://' + clean.split('/').map(encodeURIComponent).join('/')
   }
 
   const usuariosOpts = [
@@ -403,107 +374,6 @@ export function EventoDetailPage() {
                 </div>
               ))}
             </div>
-          </div>
-
-          {/* Carpeta del servidor */}
-          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <Folder size={15} className="text-gray-500" />
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Carpeta del proyecto</h3>
-            </div>
-
-            {carpetaGuardada ? (
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 bg-[var(--bg)] border border-[var(--border)] rounded-lg px-3 py-2">
-                  <FolderOpen size={14} className="text-amber-400 shrink-0" />
-                  <span className="text-xs text-gray-300 font-mono flex-1 truncate" title={carpetaGuardada}>
-                    {carpetaGuardada}
-                  </span>
-                </div>
-                <div className="flex gap-2">
-                  <a
-                    href={uncToFileUri(carpetaGuardada)}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-400 text-xs font-medium rounded-lg cursor-pointer transition-all"
-                  >
-                    <FolderOpen size={13} /> Abrir
-                  </a>
-                  <button
-                    onClick={() => copyCarpeta(carpetaGuardada)}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-[var(--surface-2)] hover:bg-[var(--surface-2h)] border border-[var(--border)] text-gray-400 text-xs font-medium rounded-lg cursor-pointer transition-all"
-                  >
-                    <Copy size={13} /> {carpetaCopied ? '¡Copiado!' : 'Copiar'}
-                  </button>
-                </div>
-                <div className="flex gap-2">
-                  {carpetaBase && (
-                    <button
-                      onClick={() => setShowFolderPicker(true)}
-                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-[var(--surface-2)] hover:bg-[var(--surface-2h)] border border-[var(--border)] text-gray-500 text-xs rounded-lg cursor-pointer transition-all"
-                    >
-                      <Search size={11} /> Cambiar
-                    </button>
-                  )}
-                  <button
-                    onClick={removeCarpeta}
-                    className="flex-1 text-xs text-gray-600 hover:text-red-400 cursor-pointer transition-colors text-center py-1.5"
-                  >
-                    Quitar carpeta
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {carpetaBase ? (
-                  <>
-                    <Button
-                      size="sm"
-                      variant="primary"
-                      onClick={() => setShowFolderPicker(true)}
-                      className="w-full justify-center"
-                    >
-                      <Search size={13} /> Seleccionar carpeta
-                    </Button>
-                    <p className="text-xs text-gray-600 text-center">o ingresá la ruta manualmente</p>
-                  </>
-                ) : (
-                  <p className="text-xs text-amber-400/80 text-center py-1">
-                    Configurá la carpeta base en Admin para poder explorar
-                  </p>
-                )}
-                <input
-                  value={carpeta}
-                  onChange={e => setCarpeta(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && carpeta.trim() && saveCarpeta()}
-                  placeholder="\\servidor\proyectos\nombre"
-                  className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-3 py-2 text-xs font-mono text-gray-300 placeholder:text-gray-600 focus:border-brand-500/50 focus:outline-none transition-all"
-                />
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={saveCarpeta}
-                  disabled={!carpeta.trim()}
-                  className="w-full justify-center"
-                >
-                  <Folder size={13} /> Asignar ruta
-                </Button>
-              </div>
-            )}
-
-            {/* Folder Picker */}
-            {showFolderPicker && carpetaBase && (
-              <div className="mt-3 pt-3 border-t border-[var(--border)]">
-                <FolderPicker
-                  basePath={carpetaBase}
-                  agenteUrl={agenteUrl}
-                  current={carpetaGuardada}
-                  onSelect={(path) => {
-                    updateEvento(evento.id, { carpetaServidor: path })
-                    setShowFolderPicker(false)
-                  }}
-                  onCancel={() => setShowFolderPicker(false)}
-                />
-              </div>
-            )}
           </div>
 
           {/* Progreso tareas */}
