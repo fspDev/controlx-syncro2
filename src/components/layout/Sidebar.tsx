@@ -23,7 +23,6 @@ const THEME_OPTS = [
 
 export function Sidebar() {
   const { sidebarOpen, setSidebarOpen, currentUser, logout, theme, setTheme } = useAppStore()
-  const tareasPendientes = useAppStore(s => s.tareasUsuario.filter(t => !t.completada).length)
 
   const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
   const logoSrc = isDark
@@ -62,14 +61,6 @@ export function Sidebar() {
           >
             <Icon size={17} className="shrink-0" />
             {sidebarOpen && <span className="flex-1">{label}</span>}
-            {to === '/mis-tareas' && tareasPendientes > 0 && (
-              <span className={cn(
-                'text-xs font-medium bg-brand-500/20 text-brand-400 rounded-full leading-none',
-                sidebarOpen ? 'px-1.5 py-0.5' : 'hidden lg:flex items-center justify-center w-4 h-4 text-[10px] absolute top-1 right-1'
-              )}>
-                {tareasPendientes}
-              </span>
-            )}
           </NavLink>
         ))}
 

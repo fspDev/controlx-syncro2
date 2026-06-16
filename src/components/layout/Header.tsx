@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Menu } from 'lucide-react'
+import { Search, Menu, CheckSquare } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 
 export function Header() {
@@ -8,6 +8,7 @@ export function Header() {
   const [focused, setFocused] = useState(false)
   const navigate = useNavigate()
   const { eventos, clientes, sidebarOpen, setSidebarOpen } = useAppStore()
+  const tareasPendientes = useAppStore(s => s.tareasUsuario.filter(t => !t.completada).length)
 
   const results = query.trim().length > 1
     ? [
@@ -75,6 +76,19 @@ export function Header() {
           </div>
         )}
       </div>
+
+      {/* Tareas pendientes */}
+      {tareasPendientes > 0 && (
+        <button
+          onClick={() => navigate('/mis-tareas')}
+          className="flex items-center gap-2 px-3 py-1.5 bg-red-500/15 hover:bg-red-500/25 border border-red-500/30 rounded-lg transition-colors cursor-pointer shrink-0"
+          title="Ver mis tareas pendientes"
+        >
+          <CheckSquare size={14} className="text-red-400" />
+          <span className="text-sm font-semibold text-red-400">{tareasPendientes}</span>
+          <span className="hidden sm:inline text-xs text-red-400/80">pendiente{tareasPendientes !== 1 ? 's' : ''}</span>
+        </button>
+      )}
     </header>
   )
 }

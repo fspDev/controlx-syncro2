@@ -57,7 +57,9 @@ export function ProyectosPage() {
   const { eventos, clientes, usuarios, addEvento } = useAppStore()
   const navigate = useNavigate()
   const [showNew, setShowNew] = useState(false)
-  const [filterEstados, setFilterEstados] = useState<Set<EventoEstado>>(new Set())
+  const [filterEstados, setFilterEstados] = useState<Set<EventoEstado>>(
+    new Set(ESTADOS_EVENTO.filter(e => e !== 'Finalizado' && e !== 'Cancelado'))
+  )
   const [filterCliente, setFilterCliente] = useState('')
 
   const toggleEstado = (estado: EventoEstado) => {
