@@ -19,7 +19,7 @@ import {
   getUsuarioByUid,
   userFromFirestore,
 } from '@/lib/db'
-import type { Cliente, Evento, Usuario, TrabajoExterno, Tarea, PlanillaGrafica, TipoPieza, Pieza, TareaUsuario } from '@/types'
+import type { Cliente, Evento, Usuario, TrabajoExterno, Tarea, PlanillaGrafica, TipoPieza, Pieza, TareaUsuario, PlanillaInfoOverride } from '@/types'
 import { TIPO_PREFIX } from '@/types'
 import { genId } from '@/lib/utils'
 
@@ -89,9 +89,10 @@ interface AppState {
   getOrCreatePlanilla: (eventoId: string) => string
   addRenderToPlanilla: (planillaId: string, data: { nombre: string; imagen: string; natW: number; natH: number }) => string
   removeRender: (planillaId: string, renderId: string) => void
-  addPieza: (planillaId: string, data: Omit<Pieza, 'id' | 'label'>) => string
+  addPieza: (planillaId: string, data: Omit<Pieza, 'id' | 'label' | 'cantidad'> & { cantidad?: number }) => string
   updatePieza: (planillaId: string, piezaId: string, data: Partial<Omit<Pieza, 'id' | 'label' | 'tipo'>>) => void
   removePieza: (planillaId: string, piezaId: string) => void
+  updatePlanillaInfo: (planillaId: string, data: PlanillaInfoOverride) => void
   addMarcador: (planillaId: string, renderId: string, piezaId: string, x: number, y: number) => string
   updateMarcador: (planillaId: string, renderId: string, marcadorId: string, x: number, y: number) => void
   sizeMarcador: (planillaId: string, renderId: string, marcadorId: string, sizeIndex: number) => void
@@ -428,7 +429,7 @@ export const useAppStore = create<AppState>()(
         const label = `${prefix}${nextNum}`
         set(s => ({
           planillas: s.planillas.map(p => p.id === planillaId
-            ? { ...p, piezas: [...p.piezas, { id, label, ...data }], updatedAt: new Date().toISOString() }
+            ? { ...p, piezas: [...p.piezas, { cantidad: 1, ...data, id, label }], updatedAt: new Date().toISOString() }
             : p)
         }))
         return id
@@ -436,6 +437,11 @@ export const useAppStore = create<AppState>()(
       updatePieza: (planillaId, piezaId, data) => set(s => ({
         planillas: s.planillas.map(p => p.id === planillaId
           ? { ...p, piezas: p.piezas.map(pz => pz.id === piezaId ? { ...pz, ...data } : pz), updatedAt: new Date().toISOString() }
+          : p)
+      })),
+      updatePlanillaInfo: (planillaId, data) => set(s => ({
+        planillas: s.planillas.map(p => p.id === planillaId
+          ? { ...p, infoOverride: { ...p.infoOverride, ...data }, updatedAt: new Date().toISOString() }
           : p)
       })),
       removePieza: (planillaId, piezaId) => set(s => ({

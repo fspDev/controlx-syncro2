@@ -95,6 +95,7 @@ export interface Pieza {
   label: string       // 'V1', 'C1', 'L1', etc.
   tipo: TipoPieza
   subtipo: string
+  cantidad: number    // cantidad física a fabricar — manual, independiente de cuántas vistas la referencian
   ancho?: number      // mm
   alto?: number       // mm
   materialidad?: string
@@ -103,11 +104,19 @@ export interface Pieza {
   imagenDetalleH?: number // natural pixel height of imagenDetalle
 }
 
+export interface PlanillaInfoOverride {
+  titulo?: string
+  cliente?: string
+  lugar?: string
+  responsable?: string
+}
+
 export interface PlanillaGrafica {
   id: string
   eventoId: string
   renders: PlanillaRender[]
   piezas: Pieza[]
+  infoOverride?: PlanillaInfoOverride
   createdAt: string
   updatedAt: string
 }

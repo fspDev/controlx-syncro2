@@ -65,7 +65,7 @@ function LabelBadge({ label, tipo, size = 'md' }: { label: string; tipo: TipoPie
 // ─── PiezaFormModal ───────────────────────────────────────────────────────────
 
 type FormConfirmData =
-  | { mode: 'nueva'; tipo: TipoPieza; subtipo: string; ancho?: number; alto?: number; materialidad?: string }
+  | { mode: 'nueva'; tipo: TipoPieza; subtipo: string; cantidad: number; ancho?: number; alto?: number; materialidad?: string }
   | { mode: 'existente'; piezaId: string }
 
 function PiezaFormModal({ piezas, onConfirm, onCancel }: {
@@ -76,6 +76,7 @@ function PiezaFormModal({ piezas, onConfirm, onCancel }: {
   const [mode, setMode] = useState<'nueva' | 'existente'>('nueva')
   const [tipo, setTipo] = useState<TipoPieza>('vinilo')
   const [subtipo, setSubtipo] = useState(SUBTIPOS.vinilo[0])
+  const [cantidad, setCantidad] = useState('1')
   const [ancho, setAncho] = useState('')
   const [alto, setAlto] = useState('')
   const [materialidad, setMaterialidad] = useState('')
@@ -88,7 +89,7 @@ function PiezaFormModal({ piezas, onConfirm, onCancel }: {
     if (mode === 'existente' && piezaExistenteId) {
       onConfirm({ mode: 'existente', piezaId: piezaExistenteId })
     } else {
-      onConfirm({ mode: 'nueva', tipo, subtipo, ancho: ancho ? Number(ancho) : undefined, alto: alto ? Number(alto) : undefined, materialidad: materialidad || undefined })
+      onConfirm({ mode: 'nueva', tipo, subtipo, cantidad: Math.max(1, Number(cantidad) || 1), ancho: ancho ? Number(ancho) : undefined, alto: alto ? Number(alto) : undefined, materialidad: materialidad || undefined })
     }
     onCancel()
   }
@@ -119,6 +120,9 @@ function PiezaFormModal({ piezas, onConfirm, onCancel }: {
                   <option key={p.id} value={p.id}>{p.label} — {TIPO_LABEL[p.tipo]} {p.subtipo}{p.ancho && p.alto ? ` (${p.ancho}×${p.alto}mm)` : ''}</option>
                 ))}
               </select>
+              <p className="text-[11px] text-gray-600 mt-2 leading-relaxed">
+                Útil cuando la misma pieza física aparece visible en otra vista — no suma a la cantidad a fabricar.
+              </p>
             </div>
           ) : (
             <>
@@ -140,6 +144,11 @@ function PiezaFormModal({ piezas, onConfirm, onCancel }: {
                   className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none cursor-pointer">
                   {SUBTIPOS[tipo].map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 mb-1.5 block">Cantidad a fabricar</label>
+                <input type="number" min={1} value={cantidad} onChange={e => setCantidad(e.target.value)}
+                  className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-brand-500/50 focus:outline-none" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -178,12 +187,13 @@ function EditPiezaModal({ pieza, onSave, onClose }: {
   onClose: () => void
 }) {
   const [subtipo, setSubtipo] = useState(pieza.subtipo)
+  const [cantidad, setCantidad] = useState((pieza.cantidad ?? 1).toString())
   const [ancho, setAncho] = useState(pieza.ancho?.toString() || '')
   const [alto, setAlto] = useState(pieza.alto?.toString() || '')
   const [materialidad, setMaterialidad] = useState(pieza.materialidad || '')
 
   const handleSave = () => {
-    onSave({ subtipo, ancho: ancho ? Number(ancho) : undefined, alto: alto ? Number(alto) : undefined, materialidad: materialidad || undefined })
+    onSave({ subtipo, cantidad: Math.max(1, Number(cantidad) || 1), ancho: ancho ? Number(ancho) : undefined, alto: alto ? Number(alto) : undefined, materialidad: materialidad || undefined })
     onClose()
   }
 
@@ -202,6 +212,11 @@ function EditPiezaModal({ pieza, onSave, onClose }: {
               {SUBTIPOS[pieza.tipo].map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
+          <div>
+            <label className="text-xs text-gray-500 mb-1.5 block">Cantidad a fabricar</label>
+            <input type="number" min={1} value={cantidad} onChange={e => setCantidad(e.target.value)}
+              className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none" />
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-gray-500 mb-1.5 block">Ancho (mm)</label>
@@ -219,6 +234,67 @@ function EditPiezaModal({ pieza, onSave, onClose }: {
             <input value={materialidad} onChange={e => setMaterialidad(e.target.value)}
               className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none" />
           </div>
+        </div>
+        <div className="px-5 py-4 border-t border-[var(--border)] flex gap-2 justify-end">
+          <Button variant="ghost" size="sm" onClick={onClose}>Cancelar</Button>
+          <Button variant="primary" size="sm" onClick={handleSave}>Guardar</Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── InfoEditModal ────────────────────────────────────────────────────────────
+// Permite sobreescribir título/cliente/lugar/responsable en el documento sin
+// modificar los datos del proyecto. Vacío = usar el valor heredado del proyecto.
+
+function InfoEditModal({ defaults, current, onSave, onClose }: {
+  defaults: { titulo: string; cliente: string; lugar: string; responsable: string }
+  current: { titulo?: string; cliente?: string; lugar?: string; responsable?: string }
+  onSave: (data: { titulo?: string; cliente?: string; lugar?: string; responsable?: string }) => void
+  onClose: () => void
+}) {
+  const [titulo, setTitulo] = useState(current.titulo || '')
+  const [cliente, setCliente] = useState(current.cliente || '')
+  const [lugar, setLugar] = useState(current.lugar || '')
+  const [responsable, setResponsable] = useState(current.responsable || '')
+
+  const handleSave = () => {
+    onSave({
+      titulo: titulo.trim() || undefined,
+      cliente: cliente.trim() || undefined,
+      lugar: lugar.trim() || undefined,
+      responsable: responsable.trim() || undefined,
+    })
+    onClose()
+  }
+
+  const fields: Array<{ label: string; value: string; set: (v: string) => void; placeholder: string }> = [
+    { label: 'Título / Stand', value: titulo, set: setTitulo, placeholder: defaults.titulo },
+    { label: 'Cliente', value: cliente, set: setCliente, placeholder: defaults.cliente },
+    { label: 'Lugar', value: lugar, set: setLugar, placeholder: defaults.lugar },
+    { label: 'Responsable', value: responsable, set: setResponsable, placeholder: defaults.responsable },
+  ]
+
+  return (
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl shadow-2xl w-full max-w-sm" onClick={e => e.stopPropagation()}>
+        <div className="px-5 py-4 border-b border-[var(--border)]">
+          <h3 className="text-sm font-semibold text-gray-200">Datos del documento</h3>
+          <p className="text-xs text-gray-500 mt-0.5">Dejá un campo vacío para usar el valor del proyecto</p>
+        </div>
+        <div className="p-5 space-y-4">
+          {fields.map(f => (
+            <div key={f.label}>
+              <label className="text-xs text-gray-500 mb-1.5 block">{f.label}</label>
+              <input
+                value={f.value}
+                onChange={e => f.set(e.target.value)}
+                placeholder={f.placeholder || '—'}
+                className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-gray-200 placeholder:text-gray-600 focus:border-brand-500/50 focus:outline-none"
+              />
+            </div>
+          ))}
         </div>
         <div className="px-5 py-4 border-t border-[var(--border)] flex gap-2 justify-end">
           <Button variant="ghost" size="sm" onClick={onClose}>Cancelar</Button>
@@ -328,8 +404,8 @@ function RenderCanvas({ render, piezas, onCanvasClick, onMarcadorMove, onMarcado
 
 // ─── PiezaDetalleCard ─────────────────────────────────────────────────────────
 
-function PiezaDetalleCard({ pieza, cantidad, onUpdateDetalle, onEdit, onDelete }: {
-  pieza: Pieza; cantidad: number
+function PiezaDetalleCard({ pieza, vistas, onUpdateDetalle, onEdit, onDelete }: {
+  pieza: Pieza; vistas: number
   onUpdateDetalle: (img: string, w: number, h: number) => void
   onEdit: () => void; onDelete: () => void
 }) {
@@ -410,9 +486,12 @@ function PiezaDetalleCard({ pieza, cantidad, onUpdateDetalle, onEdit, onDelete }
           {(pieza.ancho || pieza.alto) && <p>{pieza.ancho ?? '?'} × {pieza.alto ?? '?'} mm</p>}
           {pieza.materialidad && <p className="truncate">{pieza.materialidad}</p>}
           <div className="flex items-center justify-between pt-1.5 mt-1 border-t border-[var(--border-s)]">
-            <span>Cantidad</span>
-            <span className="font-bold text-sm text-gray-200">{cantidad}</span>
+            <span>Cantidad a fabricar</span>
+            <span className="font-bold text-sm text-gray-200">{pieza.cantidad ?? 1}</span>
           </div>
+          {vistas > 1 && (
+            <p className="text-gray-600">Visible en {vistas} vistas</p>
+          )}
         </div>
       </div>
     </div>
@@ -426,7 +505,7 @@ export function PlanillaPage() {
   const navigate = useNavigate()
   const { eventos, clientes, usuarios, planillas,
     getOrCreatePlanilla, addRenderToPlanilla, removeRender,
-    addPieza, updatePieza, removePieza,
+    addPieza, updatePieza, removePieza, updatePlanillaInfo,
     addMarcador, updateMarcador, sizeMarcador, removeMarcador,
   } = useAppStore()
 
@@ -451,6 +530,7 @@ export function PlanillaPage() {
   const [rendersPerPage, setRendersPerPage] = useState<1 | 2>(1)
   // For replacing a render image
   const [replacingRenderId, setReplacingRenderId] = useState<string | null>(null)
+  const [showInfoEdit, setShowInfoEdit] = useState(false)
 
   const renderFileRef = useRef<HTMLInputElement>(null)
   const replaceRenderFileRef = useRef<HTMLInputElement>(null)
@@ -458,10 +538,20 @@ export function PlanillaPage() {
   const currentPlanilla = planillas.find(p => p.eventoId === eventoId)
   const piezas = currentPlanilla?.piezas || []
   const renders = currentPlanilla?.renders || []
+  const infoOverride = currentPlanilla?.infoOverride
+
+  // Valores efectivos para el documento: override de la planilla si existe, sino los del proyecto
+  const docInfo = {
+    titulo: infoOverride?.titulo || evento?.titulo || '',
+    cliente: infoOverride?.cliente || cliente?.nombre || '',
+    lugar: infoOverride?.lugar || evento?.lugar || '',
+    responsable: infoOverride?.responsable || (responsable ? (responsable.displayName || responsable.username) : ''),
+  }
   const effectiveRenderId = activeRenderId || renders[0]?.id || null
   const activeRender = renders.find(r => r.id === effectiveRenderId)
 
-  const getCantidad = (piezaId: string) =>
+  // Cantidad de vistas donde aparece referenciada (no es la cantidad a fabricar)
+  const getVistas = (piezaId: string) =>
     renders.reduce((sum, r) => sum + r.marcadores.filter(m => m.piezaId === piezaId).length, 0)
 
   // Upload new render
@@ -541,6 +631,9 @@ export function PlanillaPage() {
           <span className="text-sm font-semibold text-gray-200">Planilla Gráfica</span>
         </div>
         <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={() => setShowInfoEdit(true)}>
+            <Edit2 size={13} /> Datos del documento
+          </Button>
           <Button size="sm" variant="outline" onClick={() => setShowPreview(true)}
             disabled={!renders.length || !piezas.length}>
             <Eye size={13} /> Vista previa
@@ -573,7 +666,7 @@ export function PlanillaPage() {
                   <p className="text-xs font-medium text-gray-300 truncate">{TIPO_LABEL[p.tipo]}</p>
                   <p className="text-[10px] text-gray-600 truncate">{p.subtipo}</p>
                 </div>
-                <span className="text-[10px] text-gray-600 font-medium shrink-0">{getCantidad(p.id)}×</span>
+                <span className="text-[10px] text-gray-600 font-medium shrink-0">{p.cantidad ?? 1}×</span>
               </button>
             ))}
           </div>
@@ -674,7 +767,7 @@ export function PlanillaPage() {
               </div>
               <div className="p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
                 {piezas.map(p => (
-                  <PiezaDetalleCard key={p.id} pieza={p} cantidad={getCantidad(p.id)}
+                  <PiezaDetalleCard key={p.id} pieza={p} vistas={getVistas(p.id)}
                     onUpdateDetalle={(img, w, h) => currentPlanilla && updatePieza(currentPlanilla.id, p.id, { imagenDetalle: img, imagenDetalleW: w, imagenDetalleH: h })}
                     onEdit={() => setEditingPiezaId(p.id)}
                     onDelete={() => {
@@ -731,6 +824,16 @@ export function PlanillaPage() {
           />
         )
       })()}
+
+      {/* Info edit modal */}
+      {showInfoEdit && currentPlanilla && (
+        <InfoEditModal
+          defaults={{ titulo: evento.titulo, cliente: cliente?.nombre || '—', lugar: evento.lugar || '—', responsable: responsable ? (responsable.displayName || responsable.username) : '—' }}
+          current={infoOverride || {}}
+          onSave={data => updatePlanillaInfo(currentPlanilla.id, data)}
+          onClose={() => setShowInfoEdit(false)}
+        />
+      )}
 
       {/* PDF Preview modal */}
       {showPreview && currentPlanilla && evento && (

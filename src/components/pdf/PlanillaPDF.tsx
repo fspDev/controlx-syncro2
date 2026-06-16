@@ -99,9 +99,13 @@ interface Props {
 export function PlanillaPDF({ planilla, evento, cliente, responsable, rendersPerPage = 1, logoUrl }: Props) {
   const now = new Date().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
   const piezas = planilla.piezas
+  const ov = planilla.infoOverride
 
-  const getCantidad = (piezaId: string) =>
-    planilla.renders.reduce((sum, r) => sum + r.marcadores.filter(m => m.piezaId === piezaId).length, 0)
+  // Título/cliente/lugar/responsable: usan el override de la planilla si existe, sino los del proyecto
+  const docTitulo = ov?.titulo || evento.titulo
+  const docCliente = ov?.cliente || cliente?.nombre || '—'
+  const docLugar = ov?.lugar || evento.lugar || '—'
+  const docResponsable = ov?.responsable || (responsable ? (responsable.displayName || responsable.username) : '—')
 
   const HeaderInfo = () => (
     <>
@@ -119,13 +123,13 @@ export function PlanillaPDF({ planilla, evento, cliente, responsable, rendersPer
         {/* Right: stand name */}
         <View style={S.headerRight}>
           <Text style={S.headerLabel}>stand </Text>
-          <Text style={S.headerName}>{evento.titulo.toUpperCase()}</Text>
+          <Text style={S.headerName}>{docTitulo.toUpperCase()}</Text>
         </View>
       </View>
       <View style={S.infoRow}>
-        <View style={S.infoCell}><Text style={S.infoLabel}>cliente </Text><Text style={S.infoValue}>{cliente?.nombre || '—'}</Text></View>
-        <View style={S.infoCell}><Text style={S.infoLabel}>lugar </Text><Text style={S.infoValue}>{evento.lugar || '—'}</Text></View>
-        <View style={S.infoCell}><Text style={S.infoLabel}>responsable </Text><Text style={S.infoValue}>{responsable ? (responsable.displayName || responsable.username) : '—'}</Text></View>
+        <View style={S.infoCell}><Text style={S.infoLabel}>cliente </Text><Text style={S.infoValue}>{docCliente}</Text></View>
+        <View style={S.infoCell}><Text style={S.infoLabel}>lugar </Text><Text style={S.infoValue}>{docLugar}</Text></View>
+        <View style={S.infoCell}><Text style={S.infoLabel}>responsable </Text><Text style={S.infoValue}>{docResponsable}</Text></View>
       </View>
       <View style={S.infoRow}>
         <View style={S.infoCell}><Text style={S.infoLabel}>armado </Text><Text style={S.infoValue}>{fmtDate(evento.armadoInicio)}</Text></View>
@@ -220,7 +224,7 @@ export function PlanillaPDF({ planilla, evento, cliente, responsable, rendersPer
           )}
           <View style={S.cardQty}>
             <Text style={S.cardQtyLabel}>Cantidad</Text>
-            <Text style={S.cardQtyValue}>{getCantidad(p.id)}</Text>
+            <Text style={S.cardQtyValue}>{p.cantidad ?? 1}</Text>
           </View>
         </View>
       </View>
