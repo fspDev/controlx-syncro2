@@ -11,7 +11,7 @@ import { auth, secondaryAuth } from '@/lib/firebase'
 import {
   fetchEventos, saveEvento, deleteEventoDoc,
   fetchTrabajos, saveTrabajo, deleteTrabajoDoc,
-  fetchUsuarios, saveUsuario,
+  fetchUsuarios, saveUsuario, deleteUsuarioDoc,
   fetchClientes, saveCliente, deleteClienteDoc,
   fetchTareasPlantilla, saveTareasPlantilla,
   fetchTareasUsuario, saveTareaUsuario, deleteTareaUsuarioDoc,
@@ -43,7 +43,7 @@ interface AppState {
   usuarios: Usuario[]
   addUsuario: (data: Omit<Usuario, 'id' | 'createdAt'> & { password: string }) => Promise<void>
   updateUsuario: (id: string, data: Partial<Usuario> & { password?: string }) => void
-  deleteUsuario: (id: string) => void
+  deleteUsuario: (id: string) => Promise<void>
 
   // Clientes
   clientes: Cliente[]
@@ -238,7 +238,10 @@ export const useAppStore = create<AppState>()(
         const updated = get().usuarios.find(u => u.id === id)
         if (updated) saveUsuario(updated).catch(console.error)
       },
-      deleteUsuario: (id) => set(s => ({ usuarios: s.usuarios.filter(u => u.id !== id) })),
+      deleteUsuario: async (id) => {
+        await deleteUsuarioDoc(id)
+        set(s => ({ usuarios: s.usuarios.filter(u => u.id !== id) }))
+      },
 
       clientes: [],
       addCliente: (data) => {

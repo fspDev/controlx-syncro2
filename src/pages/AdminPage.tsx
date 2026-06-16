@@ -35,6 +35,7 @@ export function AdminPage() {
   const [form, setForm] = useState<FormState>(EMPTY)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
 
   // Tareas plantilla state
   const [nuevaTarea, setNuevaTarea] = useState('')
@@ -96,6 +97,13 @@ export function AdminPage() {
         </div>
         <Button variant="primary" onClick={openNew}><Plus size={15} />Añadir Usuario</Button>
       </div>
+
+      {deleteError && (
+        <div className="flex items-start gap-2 text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+          <span className="flex-1">{deleteError}</span>
+          <button onClick={() => setDeleteError('')} className="text-red-400/70 hover:text-red-300 cursor-pointer">✕</button>
+        </div>
+      )}
 
       <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl overflow-hidden">
         <div className="px-5 py-4 border-b border-[var(--border)]">
@@ -299,7 +307,16 @@ export function AdminPage() {
       <ConfirmDialog
         open={!!deleteId}
         onClose={() => setDeleteId(null)}
-        onConfirm={() => { if (deleteId) deleteUsuario(deleteId) }}
+        onConfirm={() => {
+          if (!deleteId) return
+          const id = deleteId
+          deleteUsuario(id)
+            .then(() => setDeleteError(''))
+            .catch((err: unknown) => {
+              const code = (err as { code?: string }).code || ''
+              setDeleteError(`No se pudo eliminar al usuario: ${code || 'error desconocido'}. Puede ser un problema de permisos en Firestore Rules.`)
+            })
+        }}
         title="Eliminar usuario"
         message={`¿Eliminar al usuario "${toDelete?.displayName || toDelete?.username}"? Esta acción no se puede deshacer.`}
         confirmLabel="Eliminar"

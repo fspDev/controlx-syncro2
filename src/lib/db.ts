@@ -208,6 +208,10 @@ export async function saveUsuario(u: Usuario): Promise<void> {
   }, { merge: true })
 }
 
+export async function deleteUsuarioDoc(id: string): Promise<void> {
+  await deleteDoc(doc(db, 'users', id))
+}
+
 // ─── Clientes ─────────────────────────────────────────────────────────────────
 
 export async function fetchClientes(): Promise<Cliente[]> {
