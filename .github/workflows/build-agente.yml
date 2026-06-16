@@ -24,14 +24,19 @@ jobs:
       - name: Install pkg
         run: npm install -g pkg
 
-      - name: Build exe
-        run: pkg agente-local.cjs --target node18-win-x64 --output agente-controlx.exe
+      - name: Build exe (64-bit)
+        run: pkg agente-local.cjs --target node18-win-x64 --output agente-controlx-x64.exe
 
-      - name: Upload artifact
+      - name: Build exe (32-bit)
+        run: pkg agente-local.cjs --target node18-win-x86 --output agente-controlx-x86.exe
+
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: agente-controlx
-          path: agente-controlx.exe
+          path: |
+            agente-controlx-x64.exe
+            agente-controlx-x86.exe
           retention-days: 90
 
       - name: Create/update release
@@ -42,15 +47,22 @@ jobs:
           body: |
             ## Agente Central de Red — Control X Syncro
 
-            Descargá `agente-controlx.exe` y ejecutalo en el servidor de archivos.
+            Descargá el `.exe` correcto para el SERVIDOR donde lo vas a correr y ejecutalo ahí.
             No requiere Node.js instalado.
 
+            **¿Cuál descargar?**
+            - La mayoría de los Windows actuales son de 64 bits → usá `agente-controlx-x64.exe`
+            - Si el servidor es viejo o tiene Windows de 32 bits → usá `agente-controlx-x86.exe`
+            - Para verificar: en el servidor, ir a Configuración → Sistema → Acerca de → "Tipo de sistema". Si dice "sistema operativo de 32 bits", usá la versión x86.
+
             **Instrucciones:**
-            1. Copiá `agente-controlx.exe` al servidor
+            1. Copiá el `.exe` correcto al servidor
             2. Doble clic para ejecutarlo (o como servicio de Windows)
             3. Anotá la URL que muestra en consola (ej: `http://192.168.1.10:3001`)
             4. Configurá esa URL en la app: **Admin → Agente de Red**
-          files: agente-controlx.exe
+          files: |
+            agente-controlx-x64.exe
+            agente-controlx-x86.exe
           make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

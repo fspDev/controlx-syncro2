@@ -8,11 +8,11 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "build:agente": "pkg agente-local.cjs --target node18-win-x64 --output agente-controlx.exe"
+    "build:agente": "pkg agente-local.cjs --target node18-win-x64,node18-win-x86 --out-path dist-agente"
   },
   "pkg": {
     "assets": [],
-    "targets": ["node18-win-x64"]
+    "targets": ["node18-win-x64", "node18-win-x86"]
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.15",
