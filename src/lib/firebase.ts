@@ -14,3 +14,10 @@ const firebaseConfig = {
 export const app = initializeApp(firebaseConfig)
 export const auth = getAuth(app)
 export const db = getFirestore(app)
+
+// Instancia secundaria — usada solo para crear cuentas de usuario nuevas.
+// createUserWithEmailAndPassword inicia sesión automáticamente como el usuario
+// creado en la instancia donde se llama; usando una app aparte evitamos
+// desloguear al admin que está creando la cuenta.
+const secondaryApp = initializeApp(firebaseConfig, 'Secondary')
+export const secondaryAuth = getAuth(secondaryApp)

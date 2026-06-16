@@ -4,8 +4,10 @@ import {
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
+  createUserWithEmailAndPassword,
+  signOut as signOutSecondary,
 } from 'firebase/auth'
-import { auth } from '@/lib/firebase'
+import { auth, secondaryAuth } from '@/lib/firebase'
 import {
   fetchEventos, saveEvento, deleteEventoDoc,
   fetchTrabajos, saveTrabajo, deleteTrabajoDoc,
@@ -39,7 +41,7 @@ interface AppState {
 
   // Usuarios
   usuarios: Usuario[]
-  addUsuario: (data: Omit<Usuario, 'id' | 'createdAt'> & { password: string }) => void
+  addUsuario: (data: Omit<Usuario, 'id' | 'createdAt'> & { password: string }) => Promise<void>
   updateUsuario: (id: string, data: Partial<Usuario> & { password?: string }) => void
   deleteUsuario: (id: string) => void
 
@@ -219,11 +221,17 @@ export const useAppStore = create<AppState>()(
       },
 
       usuarios: [],
-      addUsuario: (data) => {
-        const id = genId()
-        const u: Usuario = { id, username: data.username, displayName: data.displayName, rol: data.rol, createdAt: new Date().toISOString() }
+      addUsuario: async (data) => {
+        const username = data.username.trim().toLowerCase()
+        const email = `${username}@controlx.app`
+        // Crea la cuenta real en Firebase Auth (en la instancia secundaria,
+        // para no perder la sesión del admin que está creando el usuario)
+        const cred = await createUserWithEmailAndPassword(secondaryAuth, email, data.password)
+        const id = cred.user.uid
+        const u: Usuario = { id, username, displayName: data.displayName, rol: data.rol, createdAt: new Date().toISOString() }
+        await saveUsuario(u)
+        await signOutSecondary(secondaryAuth)
         set(s => ({ usuarios: [...s.usuarios, u] }))
-        saveUsuario(u).catch(console.error)
       },
       updateUsuario: (id, data) => {
         set(s => ({ usuarios: s.usuarios.map(u => u.id === id ? { ...u, ...data } : u) }))

@@ -34,6 +34,7 @@ export function AdminPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [form, setForm] = useState<FormState>(EMPTY)
   const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
   // Tareas plantilla state
   const [nuevaTarea, setNuevaTarea] = useState('')
@@ -48,20 +49,39 @@ export function AdminPage() {
     setEditId(u.id); setError(''); setShowForm(true)
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const firebaseUserErrorMessage = (code: string): string => {
+    switch (code) {
+      case 'auth/email-already-in-use': return 'Ese nombre de usuario ya está en uso'
+      case 'auth/weak-password': return 'La contraseña debe tener al menos 6 caracteres'
+      case 'auth/invalid-email': return 'Nombre de usuario inválido'
+      case 'auth/network-request-failed': return 'Error de conexión. Intentá de nuevo.'
+      default: return `No se pudo crear el usuario (${code || 'error desconocido'})`
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     if (!form.username.trim()) return setError('El usuario es requerido')
     if (!editId && !form.password) return setError('La contraseña es requerida')
     if (form.password && form.password !== form.confirmPass) return setError('Las contraseñas no coinciden')
-    if (!editId && usuarios.find(u => u.username === form.username)) return setError('El usuario ya existe')
+    if (!editId && usuarios.find(u => u.username.toLowerCase() === form.username.trim().toLowerCase())) return setError('El usuario ya existe')
 
-    if (editId) {
-      updateUsuario(editId, { username: form.username, displayName: form.displayName, rol: form.rol, ...(form.password ? { password: form.password } : {}) })
-    } else {
-      addUsuario({ username: form.username, displayName: form.displayName, rol: form.rol, password: form.password })
+    setSubmitting(true)
+    try {
+      if (editId) {
+        updateUsuario(editId, { username: form.username, displayName: form.displayName, rol: form.rol })
+        setShowForm(false)
+      } else {
+        await addUsuario({ username: form.username, displayName: form.displayName, rol: form.rol, password: form.password })
+        setShowForm(false)
+      }
+    } catch (err: unknown) {
+      const code = (err as { code?: string }).code || ''
+      setError(firebaseUserErrorMessage(code))
+    } finally {
+      setSubmitting(false)
     }
-    setShowForm(false)
   }
 
   const set = (k: keyof FormState, v: string) => setForm(prev => ({ ...prev, [k]: v }))
@@ -260,14 +280,18 @@ export function AdminPage() {
           <Input label="Usuario *" value={form.username} onChange={e => set('username', e.target.value)} placeholder="nombre.usuario" disabled={!!editId} />
           <Input label="Nombre para mostrar" value={form.displayName} onChange={e => set('displayName', e.target.value)} placeholder="Nombre Apellido" />
           <Select label="Rol" value={form.rol} onChange={e => set('rol', e.target.value as UserRol)} options={ROL_OPTS} />
-          <Input label={editId ? 'Nueva contraseña (opcional)' : 'Contraseña *'} type="password" value={form.password} onChange={e => set('password', e.target.value)} placeholder="••••••••" />
-          {form.password && (
-            <Input label="Confirmar contraseña" type="password" value={form.confirmPass} onChange={e => set('confirmPass', e.target.value)} placeholder="••••••••" />
+          {!editId && (
+            <>
+              <Input label="Contraseña *" type="password" value={form.password} onChange={e => set('password', e.target.value)} placeholder="••••••••" />
+              <Input label="Confirmar contraseña" type="password" value={form.confirmPass} onChange={e => set('confirmPass', e.target.value)} placeholder="••••••••" />
+            </>
           )}
           {error && <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>}
           <div className="flex gap-2 justify-end pt-2">
             <Button type="button" variant="ghost" onClick={() => setShowForm(false)}>Cancelar</Button>
-            <Button type="submit" variant="primary">{editId ? 'Guardar' : 'Crear Usuario'}</Button>
+            <Button type="submit" variant="primary" disabled={submitting}>
+              {submitting ? 'Creando...' : editId ? 'Guardar' : 'Crear Usuario'}
+            </Button>
           </div>
         </form>
       </Dialog>
