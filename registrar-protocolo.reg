@@ -1,0 +1,12 @@
+Windows Registry Editor Version 5.00
+
+[HKEY_CLASSES_ROOT\controlx-open]
+@="URL:Control X Open Folder Protocol"
+"URL Protocol"=""
+
+[HKEY_CLASSES_ROOT\controlx-open\shell]
+
+[HKEY_CLASSES_ROOT\controlx-open\shell\open]
+
+[HKEY_CLASSES_ROOT\controlx-open\shell\open\command]
+@="\"C:\\ControlX\\abrir-carpeta.exe\" \"%1\""

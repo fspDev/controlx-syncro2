@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - 'agente-local.cjs'
+      - 'abrir-carpeta.cjs'
+      - 'registrar-protocolo.reg'
       - '.github/workflows/build-agente.yml'
   workflow_dispatch:
 
@@ -33,11 +35,21 @@ jobs:
         continue-on-error: true
         run: pkg agente-local.cjs --target node18-win-x86 --output agente-controlx-x86.exe
 
+      - name: Build abrir-carpeta (64-bit)
+        run: pkg abrir-carpeta.cjs --target node18-win-x64 --output abrir-carpeta-x64.exe
+
+      - name: Build abrir-carpeta (32-bit)
+        continue-on-error: true
+        run: pkg abrir-carpeta.cjs --target node18-win-x86 --output abrir-carpeta-x86.exe
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: agente-controlx
-          path: agente-controlx-x*.exe
+          path: |
+            agente-controlx-x*.exe
+            abrir-carpeta-x*.exe
+            registrar-protocolo.reg
           if-no-files-found: warn
           retention-days: 90
 
@@ -49,20 +61,32 @@ jobs:
           body: |
             ## Agente Central de Red — Control X Syncro
 
-            Descargá el `.exe` correcto para el SERVIDOR donde lo vas a correr y ejecutalo ahí.
-            No requiere Node.js instalado.
+            ### 1. Agente (una sola vez, en el SERVIDOR)
+            Descargá el `agente-controlx` correcto para el servidor y ejecutalo ahí.
+            - La mayoría de los Windows actuales son de 64 bits → `agente-controlx-x64.exe`
+            - Windows viejo/32 bits → `agente-controlx-x86.exe`
+            - Para verificar: Configuración → Sistema → Acerca de → "Tipo de sistema"
 
-            **¿Cuál descargar?**
-            - La mayoría de los Windows actuales son de 64 bits → usá `agente-controlx-x64.exe`
-            - Si el servidor es viejo o tiene Windows de 32 bits → usá `agente-controlx-x86.exe`
-            - Para verificar: en el servidor, ir a Configuración → Sistema → Acerca de → "Tipo de sistema". Si dice "sistema operativo de 32 bits", usá la versión x86.
+            Instrucciones: copiar el `.exe` al servidor, ejecutarlo, anotar la URL que muestra
+            en consola (ej `http://192.168.1.10:3001`) y configurarla en la app:
+            **Admin → Agente de Red**.
 
-            **Instrucciones:**
-            1. Copiá el `.exe` correcto al servidor
-            2. Doble clic para ejecutarlo (o como servicio de Windows)
-            3. Anotá la URL que muestra en consola (ej: `http://192.168.1.10:3001`)
-            4. Configurá esa URL en la app: **Admin → Agente de Red**
-          files: agente-controlx-x*.exe
+            ### 2. Abrir carpeta con un clic (una sola vez, en CADA PC que use la app)
+            Para que el botón "Abrir" de la carpeta del proyecto funcione con un solo clic
+            (en vez de copiar y pegar la ruta manualmente):
+
+            1. Creá la carpeta `C:\ControlX` en esa PC
+            2. Copiá ahí `abrir-carpeta-x64.exe` (o `-x86.exe` si esa PC es de 32 bits) y
+               **renombralo a `abrir-carpeta.exe`** (el nombre exacto importa)
+            3. Descargá `registrar-protocolo.reg` y hacé doble clic para importarlo
+               (Windows va a pedir confirmación — aceptá)
+            4. Listo. Desde ahora, los links "Abrir" abren el Explorador directo en esa PC
+
+            Es un paso único por PC — después de eso queda funcionando para siempre.
+          files: |
+            agente-controlx-x*.exe
+            abrir-carpeta-x*.exe
+            registrar-protocolo.reg
           make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

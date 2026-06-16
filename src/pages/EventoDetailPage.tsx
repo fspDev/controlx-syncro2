@@ -95,12 +95,15 @@ export function EventoDetailPage() {
     setTimeout(() => setCarpetaCopied(false), 2000)
   }
 
-  // Convierte una ruta UNC (\\servidor\share\sub) a un link file:// que el
-  // propio Windows resuelve LOCALMENTE en la PC donde se hace clic — no pasa
-  // por el agente del servidor, por eso abre siempre en la PC del usuario.
+  // Convierte una ruta UNC (\\servidor\share\sub) a un link con el protocolo
+  // personalizado controlx-open://, registrado localmente en cada PC (ver
+  // registrar-protocolo.reg). Windows lo resuelve LOCALMENTE en la PC donde
+  // se hace clic — no pasa por el agente del servidor. Los navegadores
+  // bloquean la navegación directa a file:// desde una página web, por eso
+  // hace falta un protocolo propio en vez de un link file:// simple.
   const uncToFileUri = (path: string) => {
     const clean = path.replace(/^\\\\/, '').replace(/\\/g, '/')
-    return 'file://' + clean.split('/').map(encodeURIComponent).join('/')
+    return 'controlx-open://' + clean.split('/').map(encodeURIComponent).join('/')
   }
 
   const usuariosOpts = [
