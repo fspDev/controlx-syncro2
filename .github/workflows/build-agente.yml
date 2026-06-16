@@ -28,7 +28,9 @@ jobs:
         run: pkg agente-local.cjs --target node18-win-x64 --output agente-controlx-x64.exe
 
       - name: Build exe (32-bit)
-        run: pkg agente-local.cjs --target node18-win-x86 --output agente-controlx-x86.exe
+        # Node dejó de publicar builds oficiales de Windows 32-bit a partir de Node 13,
+        # por eso usamos node12 (la última versión LTS con soporte win-x86) para este target.
+        run: pkg agente-local.cjs --target node12-win-x86 --output agente-controlx-x86.exe
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
