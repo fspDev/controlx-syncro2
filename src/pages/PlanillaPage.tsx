@@ -358,8 +358,19 @@ function RenderCanvas({ render, piezas, onCanvasClick, onMarcadorMove, onMarcado
       onMouseUp={commitDrag}
       onMouseLeave={commitDrag}
     >
-      {/* Image in normal flow — defines container height */}
-      <img src={render.imagen} className="w-full block" draggable={false} alt={render.nombre} />
+      {/* Image in normal flow — defines container height. width/height + aspectRatio
+          reservan el espacio correcto desde el primer frame, antes de que la imagen
+          termine de decodificar, para que los marcadores (position absolute, % del
+          contenedor) no queden mal ubicados mientras carga. */}
+      <img
+        src={render.imagen}
+        width={render.natW}
+        height={render.natH}
+        style={{ aspectRatio: `${render.natW} / ${render.natH}` }}
+        className="w-full h-auto block"
+        draggable={false}
+        alt={render.nombre}
+      />
 
       {/* Markers overlay */}
       {render.marcadores.map(m => {
@@ -803,6 +814,15 @@ export function PlanillaPage() {
               <Upload size={22} />
               <span className="text-xs">Seleccionar imagen del render</span>
             </button>
+            <div className="bg-[var(--bg)] border border-[var(--border)] rounded-lg px-3 py-2.5">
+              <p className="text-[11px] font-medium text-gray-400 mb-1">Especificaciones recomendadas</p>
+              <ul className="text-[11px] text-gray-600 space-y-0.5">
+                <li>· Formato: JPG o PNG</li>
+                <li>· Resolución máxima útil: 1600 px en el lado mayor</li>
+                <li>· Orientación horizontal recomendada para el render principal</li>
+                <li>· La imagen se comprime automáticamente al subir, no es necesario optimizarla antes</li>
+              </ul>
+            </div>
           </div>
         </div>
       )}
