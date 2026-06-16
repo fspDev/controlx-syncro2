@@ -1,0 +1,15 @@
+{
+  "name": "Control X Syncro",
+  "short_name": "Control X",
+  "description": "Gestión de proyectos, clientes y planillas gráficas — Control X",
+  "theme_color": "#111111",
+  "background_color": "#111111",
+  "display": "standalone",
+  "start_url": "/controlx-syncro2/",
+  "scope": "/controlx-syncro2/",
+  "icons": [
+    { "src": "pwa-icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "pwa-icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "pwa-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
