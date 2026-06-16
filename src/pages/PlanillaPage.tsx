@@ -17,6 +17,39 @@ const MARKER_SIZES = [
   { cls: 'w-16 h-16 text-[15px]', label: 'xl' },
 ]
 
+// ─── Image compression ─────────────────────────────────────────────────────
+// Redimensiona y comprime antes de guardar en base64: las planillas viven en
+// localStorage (no Firestore), que tiene un límite de ~5-10MB. Sin esto, 2 o 3
+// renders en buena resolución alcanzan para llenar la cuota y trabar la app.
+
+function compressImage(source: File | Blob, maxDim = 1600, quality = 0.82): Promise<{ base64: string; w: number; h: number }> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const img = new Image()
+      img.onload = () => {
+        let { naturalWidth: width, naturalHeight: height } = img
+        if (width > maxDim || height > maxDim) {
+          const scale = maxDim / Math.max(width, height)
+          width = Math.round(width * scale)
+          height = Math.round(height * scale)
+        }
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        if (!ctx) { reject(new Error('No se pudo procesar la imagen')); return }
+        ctx.drawImage(img, 0, 0, width, height)
+        resolve({ base64: canvas.toDataURL('image/jpeg', quality), w: width, h: height })
+      }
+      img.onerror = () => reject(new Error('No se pudo cargar la imagen'))
+      img.src = reader.result as string
+    }
+    reader.onerror = () => reject(new Error('No se pudo leer el archivo'))
+    reader.readAsDataURL(source)
+  })
+}
+
 // ─── LabelBadge ──────────────────────────────────────────────────────────────
 
 function LabelBadge({ label, tipo, size = 'md' }: { label: string; tipo: TipoPieza; size?: 'sm' | 'md' | 'lg' }) {
@@ -211,6 +244,9 @@ function RenderCanvas({ render, piezas, onCanvasClick, onMarcadorMove, onMarcado
   const containerRef = useRef<HTMLDivElement>(null)
   const draggingId = useRef<string | null>(null)
   const hasMoved = useRef(false)
+  // Posición en vivo durante el arrastre — no toca el store (evita escribir
+  // todo el localStorage, con imágenes base64 incluidas, en cada pixel movido)
+  const [dragPos, setDragPos] = useState<{ id: string; x: number; y: number } | null>(null)
 
   const getPos = (e: React.MouseEvent) => {
     const rect = containerRef.current!.getBoundingClientRect()
@@ -218,6 +254,14 @@ function RenderCanvas({ render, piezas, onCanvasClick, onMarcadorMove, onMarcado
       x: Math.max(1, Math.min(99, ((e.clientX - rect.left) / rect.width) * 100)),
       y: Math.max(1, Math.min(99, ((e.clientY - rect.top) / rect.height) * 100)),
     }
+  }
+
+  const commitDrag = () => {
+    if (draggingId.current && dragPos) {
+      onMarcadorMove(draggingId.current, dragPos.x, dragPos.y)
+    }
+    draggingId.current = null
+    setDragPos(null)
   }
 
   return (
@@ -233,10 +277,10 @@ function RenderCanvas({ render, piezas, onCanvasClick, onMarcadorMove, onMarcado
         if (!draggingId.current) return
         hasMoved.current = true
         const { x, y } = getPos(e)
-        onMarcadorMove(draggingId.current, x, y)
+        setDragPos({ id: draggingId.current, x, y })
       }}
-      onMouseUp={() => { draggingId.current = null }}
-      onMouseLeave={() => { draggingId.current = null }}
+      onMouseUp={commitDrag}
+      onMouseLeave={commitDrag}
     >
       {/* Image in normal flow — defines container height */}
       <img src={render.imagen} className="w-full block" draggable={false} alt={render.nombre} />
@@ -248,11 +292,12 @@ function RenderCanvas({ render, piezas, onCanvasClick, onMarcadorMove, onMarcado
         const isActive = activePiezaId === m.piezaId
         const sizeIdx = m.sizeIndex ?? 0
         const { cls: sizeCls } = MARKER_SIZES[sizeIdx]
+        const pos = dragPos && dragPos.id === m.id ? dragPos : m
         return (
           <div
             key={m.id}
             className="group absolute"
-            style={{ left: `${m.x}%`, top: `${m.y}%`, transform: 'translate(-50%, -50%)', zIndex: isActive ? 10 : 5 }}
+            style={{ left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%, -50%)', zIndex: isActive ? 10 : 5 }}
             onMouseDown={e => { e.stopPropagation(); draggingId.current = m.id; hasMoved.current = false }}
             onClick={e => {
               e.stopPropagation()
@@ -290,19 +335,12 @@ function PiezaDetalleCard({ pieza, cantidad, onUpdateDetalle, onEdit, onDelete }
 }) {
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const readWithDimensions = (base64: string, cb: (img: string, w: number, h: number) => void) => {
-    const img = new Image()
-    img.onload = () => cb(base64, img.naturalWidth, img.naturalHeight)
-    img.src = base64
-  }
-
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => readWithDimensions(reader.result as string, onUpdateDetalle)
-    reader.readAsDataURL(file)
     e.target.value = ''
+    if (!file) return
+    const { base64, w, h } = await compressImage(file)
+    onUpdateDetalle(base64, w, h)
   }
 
   const pasteFromClipboard = async () => {
@@ -312,9 +350,8 @@ function PiezaDetalleCard({ pieza, cantidad, onUpdateDetalle, onEdit, onDelete }
         const imgType = item.types.find(t => t.startsWith('image/'))
         if (imgType) {
           const blob = await item.getType(imgType)
-          const reader = new FileReader()
-          reader.onload = () => readWithDimensions(reader.result as string, onUpdateDetalle)
-          reader.readAsDataURL(blob)
+          const { base64, w, h } = await compressImage(blob)
+          onUpdateDetalle(base64, w, h)
           return
         }
       }
@@ -428,46 +465,32 @@ export function PlanillaPage() {
     renders.reduce((sum, r) => sum + r.marcadores.filter(m => m.piezaId === piezaId).length, 0)
 
   // Upload new render
-  const handleRenderUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleRenderUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (!file || !currentPlanilla) return
-    readImageFile(file, (base64, natW, natH) => {
-      const id = addRenderToPlanilla(currentPlanilla.id, {
-        nombre: newRenderNombre.trim() || file.name.replace(/\.[^.]+$/, ''),
-        imagen: base64, natW, natH,
-      })
-      setActiveRenderId(id)
-      setShowAddRender(false)
-      setNewRenderNombre('')
-    })
     e.target.value = ''
+    if (!file || !currentPlanilla) return
+    const { base64, w, h } = await compressImage(file)
+    const id = addRenderToPlanilla(currentPlanilla.id, {
+      nombre: newRenderNombre.trim() || file.name.replace(/\.[^.]+$/, ''),
+      imagen: base64, natW: w, natH: h,
+    })
+    setActiveRenderId(id)
+    setShowAddRender(false)
+    setNewRenderNombre('')
   }
 
   // Replace existing render image
-  const handleReplaceRender = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleReplaceRender = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (!file || !currentPlanilla || !replacingRenderId) return
-    readImageFile(file, (base64, natW, natH) => {
-      // updateRender equivalent: update the render in-place using updateMarcador logic
-      useAppStore.setState(s => ({
-        planillas: s.planillas.map(p => p.id === currentPlanilla.id
-          ? { ...p, renders: p.renders.map(r => r.id === replacingRenderId ? { ...r, imagen: base64, natW, natH } : r) }
-          : p)
-      }))
-      setReplacingRenderId(null)
-    })
     e.target.value = ''
-  }
-
-  const readImageFile = (file: File, cb: (base64: string, natW: number, natH: number) => void) => {
-    const reader = new FileReader()
-    reader.onload = () => {
-      const base64 = reader.result as string
-      const img = new Image()
-      img.onload = () => cb(base64, img.naturalWidth, img.naturalHeight)
-      img.src = base64
-    }
-    reader.readAsDataURL(file)
+    if (!file || !currentPlanilla || !replacingRenderId) return
+    const { base64, w, h } = await compressImage(file)
+    useAppStore.setState(s => ({
+      planillas: s.planillas.map(p => p.id === currentPlanilla.id
+        ? { ...p, renders: p.renders.map(r => r.id === replacingRenderId ? { ...r, imagen: base64, natW: w, natH: h } : r) }
+        : p)
+    }))
+    setReplacingRenderId(null)
   }
 
   const handlePiezaFormConfirm = (data: FormConfirmData) => {
