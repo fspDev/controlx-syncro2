@@ -76,7 +76,7 @@ export function LoginPage() {
         <div className="flex flex-col items-center mb-8">
           {(() => {
             const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
-            return <img src={isDark ? `${import.meta.env.BASE_URL}logo1.png` : `${import.meta.env.BASE_URL}logo2.png`} alt="Logo" className="h-20 w-auto object-contain mb-2" />
+            return <img src={isDark ? `${import.meta.env.BASE_URL}logo1.svg` : `${import.meta.env.BASE_URL}logo2.svg`} alt="Logo" className="h-20 w-auto object-contain mb-2" />
           })()}
         </div>
 

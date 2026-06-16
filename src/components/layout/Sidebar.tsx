@@ -26,8 +26,8 @@ export function Sidebar() {
 
   const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
   const logoSrc = isDark
-    ? `${import.meta.env.BASE_URL}logo1.png`
-    : `${import.meta.env.BASE_URL}logo2.png`
+    ? `${import.meta.env.BASE_URL}logo1.svg`
+    : `${import.meta.env.BASE_URL}logo2.svg`
 
   return (
     <aside className={cn(
