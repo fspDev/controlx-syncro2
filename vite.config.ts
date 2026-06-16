@@ -31,6 +31,8 @@ export default defineConfig({
         // No cachear las imágenes base64 enormes de planillas en el SW —
         // esas viven en IndexedDB, no en archivos estáticos
         globPatterns: ['**/*.{js,css,html,svg,ico,png}'],
+        // El bundle principal supera el límite default de Workbox (2 MiB)
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
       },
     }),
   ],
