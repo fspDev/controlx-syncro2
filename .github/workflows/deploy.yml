@@ -31,7 +31,11 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        # npm install en vez de npm ci: package-lock.json puede no estar
+        # perfectamente sincronizado tras agregar dependencias manualmente
+        # sin poder correr npm localmente. npm install lo resuelve y
+        # actualiza el lockfile en este entorno (no se commitea de vuelta).
+        run: npm install
 
       - name: Build
         run: npm run build
