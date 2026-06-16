@@ -35,7 +35,10 @@ jobs:
         # perfectamente sincronizado tras agregar dependencias manualmente
         # sin poder correr npm localmente. npm install lo resuelve y
         # actualiza el lockfile en este entorno (no se commitea de vuelta).
-        run: npm install
+        # --legacy-peer-deps: evita que un conflicto de peerDependencies
+        # (ej. vite-plugin-pwa sin rango declarado para una versión de
+        # Vite muy reciente) bloquee la instalación.
+        run: npm install --legacy-peer-deps
 
       - name: Build
         run: npm run build
