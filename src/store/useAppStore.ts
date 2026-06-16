@@ -1,5 +1,6 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, createJSONStorage } from 'zustand/middleware'
+import { idbStorage } from '@/lib/idbStorage'
 import {
   signInWithEmailAndPassword,
   signOut,
@@ -509,6 +510,7 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'controlx-store',
+      storage: createJSONStorage(() => idbStorage),
       partialize: (s) => ({
         planillas: s.planillas,
         tareasPlantilla: s.tareasPlantilla,
