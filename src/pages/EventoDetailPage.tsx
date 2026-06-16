@@ -31,7 +31,6 @@ export function EventoDetailPage() {
   const [showFolderPicker, setShowFolderPicker] = useState(false)
   const [carpeta, setCarpeta] = useState('')
   const [carpetaCopied, setCarpetaCopied] = useState(false)
-  const [carpetaStatus, setCarpetaStatus] = useState<'idle' | 'ok' | 'error'>('idle')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   if (!evento) return (
@@ -96,23 +95,12 @@ export function EventoDetailPage() {
     setTimeout(() => setCarpetaCopied(false), 2000)
   }
 
-  const openCarpeta = async (path: string) => {
-    setCarpetaStatus('idle')
-    try {
-      const res = await fetch(`${agenteUrl}/open?path=${encodeURIComponent(path)}`)
-      const data = await res.json()
-      if (data.ok) {
-        setCarpetaStatus('ok')
-        setTimeout(() => setCarpetaStatus('idle'), 2500)
-      } else {
-        setCarpetaStatus('error')
-        setTimeout(() => setCarpetaStatus('idle'), 3000)
-      }
-    } catch {
-      // Agente local no disponible
-      setCarpetaStatus('error')
-      setTimeout(() => setCarpetaStatus('idle'), 3000)
-    }
+  // Convierte una ruta UNC (\\servidor\share\sub) a un link file:// que el
+  // propio Windows resuelve LOCALMENTE en la PC donde se hace clic — no pasa
+  // por el agente del servidor, por eso abre siempre en la PC del usuario.
+  const uncToFileUri = (path: string) => {
+    const clean = path.replace(/^\\\\/, '').replace(/\\/g, '/')
+    return 'file://' + clean.split('/').map(encodeURIComponent).join('/')
   }
 
   const usuariosOpts = [
@@ -430,19 +418,12 @@ export function EventoDetailPage() {
                   </span>
                 </div>
                 <div className="flex gap-2">
-                  <button
-                    onClick={() => openCarpeta(carpetaGuardada)}
-                    className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 border text-xs font-medium rounded-lg cursor-pointer transition-all ${
-                      carpetaStatus === 'ok'
-                        ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
-                        : carpetaStatus === 'error'
-                        ? 'bg-red-500/15 border-red-500/30 text-red-400'
-                        : 'bg-amber-500/15 hover:bg-amber-500/25 border-amber-500/30 text-amber-400'
-                    }`}
+                  <a
+                    href={uncToFileUri(carpetaGuardada)}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-400 text-xs font-medium rounded-lg cursor-pointer transition-all"
                   >
-                    <FolderOpen size={13} />
-                    {carpetaStatus === 'ok' ? '¡Abierto!' : carpetaStatus === 'error' ? 'Sin agente local' : 'Abrir'}
-                  </button>
+                    <FolderOpen size={13} /> Abrir
+                  </a>
                   <button
                     onClick={() => copyCarpeta(carpetaGuardada)}
                     className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-[var(--surface-2)] hover:bg-[var(--surface-2h)] border border-[var(--border)] text-gray-400 text-xs font-medium rounded-lg cursor-pointer transition-all"
