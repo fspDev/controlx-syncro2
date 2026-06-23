@@ -86,8 +86,41 @@ export function TrabajosPage() {
         <span className="text-xs text-gray-600 ml-auto">{filtered.length} trabajo{filtered.length !== 1 ? 's' : ''}</span>
       </div>
 
-      {/* Tabla */}
-      <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl overflow-hidden">
+      {/* Tarjetas — mobile */}
+      <div className="md:hidden flex flex-col gap-2">
+        {filtered.length === 0 ? (
+          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-10 text-center text-gray-500 text-sm">
+            <CheckSquare size={28} className="mx-auto mb-2 opacity-30" />
+            No hay trabajos
+          </div>
+        ) : filtered.map(t => {
+          const cols = TRABAJO_ESTADO_COLORS[t.estado]
+          return (
+            <div key={t.id} className="bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-3">
+              <div className="flex items-start justify-between gap-2 mb-1.5">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-200 truncate">{t.titulo}</p>
+                  <p className="text-xs text-gray-500">{t.clienteNombre}</p>
+                </div>
+                <Badge className={`${cols.bg} ${cols.text} shrink-0`}>{t.estado}</Badge>
+              </div>
+              <div className="flex items-center justify-between mt-2">
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <span className="font-medium text-gray-300">{formatCurrency(t.precioVenta)}</span>
+                  {t.fechaEntrega && <><span>·</span><span>{formatDate(t.fechaEntrega)}</span></>}
+                </div>
+                <div className="flex gap-1">
+                  <button onClick={() => openEdit(t)} className="p-1.5 rounded text-gray-600 hover:text-gray-300 hover:bg-[var(--surface-2)] cursor-pointer transition-all"><Edit2 size={13} /></button>
+                  <button onClick={() => setDeleteId(t.id)} className="p-1.5 rounded text-gray-600 hover:text-red-400 hover:bg-red-500/10 cursor-pointer transition-all"><Trash2 size={13} /></button>
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Tabla — desktop */}
+      <div className="hidden md:block bg-[var(--surface)] border border-[var(--border)] rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
         <table className="w-full min-w-[560px]">
           <thead>

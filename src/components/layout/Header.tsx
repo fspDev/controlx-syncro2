@@ -38,10 +38,10 @@ export function Header() {
 
   return (
     <header className="h-12 border-b border-[var(--border-s)] flex items-center px-4 gap-3 bg-[var(--bg-dark)] shrink-0">
-      {/* Hamburger — mobile only */}
+      {/* Hamburger — desktop collapsed sidebar only */}
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="lg:hidden p-1.5 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-[var(--surface-2)] transition-all cursor-pointer shrink-0"
+        className="hidden lg:flex p-1.5 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-[var(--surface-2)] transition-all cursor-pointer shrink-0"
         aria-label="Menú"
       >
         <Menu size={18} />

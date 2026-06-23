@@ -134,8 +134,42 @@ export function ProyectosPage() {
         </div>
       </div>
 
-      {/* Tabla */}
-      <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl overflow-hidden">
+      {/* Tarjetas — mobile */}
+      <div className="md:hidden flex flex-col gap-2">
+        {filtered.length === 0 ? (
+          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-10 text-center text-gray-500 text-sm">
+            No se encontraron eventos
+          </div>
+        ) : filtered.map(e => {
+          const cliente = clientes.find(c => c.id === e.clienteId)
+          const tareasPend = e.tareas.filter(t => !t.completada).length
+          return (
+            <div
+              key={e.id}
+              onClick={() => navigate(`/proyectos/${e.id}`)}
+              className="bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-3 cursor-pointer hover:bg-[var(--surface-h)] active:bg-[var(--surface-h)] transition-colors"
+            >
+              <div className="flex items-start justify-between gap-2 mb-1.5">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-sm font-medium text-gray-200 truncate">{e.titulo}</span>
+                  {tareasPend > 0 && <AlertCircle size={13} className="text-amber-400 shrink-0" />}
+                </div>
+                <div className="shrink-0" onClick={ev => ev.stopPropagation()}>
+                  <EstadoSelector eventoId={e.id} estado={e.estado} />
+                </div>
+              </div>
+              <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
+                {cliente && <span>{cliente.nombre}</span>}
+                {e.lugar && <><span>·</span><span>{e.lugar}</span></>}
+                {e.eventoInicio && <><span>·</span><span>{formatDate(e.eventoInicio)}</span></>}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Tabla — desktop */}
+      <div className="hidden md:block bg-[var(--surface)] border border-[var(--border)] rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
         <table className="w-full min-w-[560px]">
           <thead>
