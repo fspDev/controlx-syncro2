@@ -120,8 +120,18 @@ export function DashboardPage() {
               const cols = ESTADO_COLORS[e.estado]
               const tareasPend = e.tareas.filter(t => !t.completada).length
               return (
-                <Card key={e.id} className="p-4 cursor-pointer hover:border-[var(--border-h)] transition-colors" onClick={() => navigate(`/proyectos/${e.id}`)}>
-                  <div className="flex items-start justify-between gap-3">
+                <Card key={e.id} className="p-4 cursor-pointer hover:border-[var(--border-h)] transition-colors overflow-hidden" onClick={() => navigate(`/proyectos/${e.id}`)}>
+                  <div className="flex items-start gap-3">
+                    {/* Render thumbnail */}
+                    {e.renders && e.renders.length > 0 ? (
+                      <div className="w-20 h-14 rounded-lg overflow-hidden shrink-0 bg-[var(--bg)] border border-[var(--border-s)]">
+                        <img src={e.renders[0]} alt="render" className="w-full h-full object-cover" />
+                      </div>
+                    ) : (
+                      <div className="w-20 h-14 rounded-lg shrink-0 bg-[var(--bg)] border border-[var(--border-s)] flex items-center justify-center">
+                        <FolderKanban size={18} className="text-gray-600" />
+                      </div>
+                    )}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <Badge className={`${cols.bg} ${cols.text}`}>{estadoLabel(e.estado)}</Badge>

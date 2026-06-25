@@ -9,7 +9,8 @@ import {
   where,
   Timestamp,
 } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
+import { db, storage } from '@/lib/firebase'
 import type { Evento, TrabajoExterno, Usuario, Cliente, TareaUsuario } from '@/types'
 import type { TareaPlantilla } from '@/store/useAppStore'
 
@@ -81,7 +82,7 @@ function eventoFromFirestore(id: string, data: Record<string, unknown>): Evento 
     eventoFin: tsToIso(fechaEvento.end) || (data.eventoFin as string) || undefined,
     desarme: tsToIso(data.desarme) || (data.desarme as string) || undefined,
     carpetaServidor: (data.carpetaServidor as string) || undefined,
-    renders: [],  // never loaded from Firestore — stored in localStorage only
+    renders: Array.isArray(data.renders) ? (data.renders as string[]) : [],
     createdAt: tsToIso(data.createdAt) || new Date().toISOString(),
     updatedAt: tsToIso(data.updatedAt) || new Date().toISOString(),
     createdBy: (data.createdBy as string) || '',
@@ -89,10 +90,11 @@ function eventoFromFirestore(id: string, data: Record<string, unknown>): Evento 
 }
 
 function eventoToFirestore(e: Evento): Record<string, unknown> {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { renders: _renders, ...rest } = e
+  // Only persist Storage URLs (https://), never base64 blobs
+  const renderUrls = (e.renders || []).filter(r => r.startsWith('https://'))
   const doc: Record<string, unknown> = {
-    ...rest,
+    ...e,
+    renders: renderUrls,
     // keep flat fields for v2
     armadoInicio: e.armadoInicio || null,
     armadoFin: e.armadoFin || null,
@@ -225,6 +227,29 @@ export async function saveCliente(c: Cliente): Promise<void> {
 
 export async function deleteClienteDoc(id: string): Promise<void> {
   await deleteDoc(doc(db, 'clientes', id))
+}
+
+// ─── Renders (Firebase Storage) ──────────────────────────────────────────────
+
+export async function uploadRender(eventoId: string, file: File): Promise<string> {
+  const ext = file.name.split('.').pop() || 'jpg'
+  const path = `renders/${eventoId}/${Date.now()}.${ext}`
+  const storageRef = ref(storage, path)
+  await uploadBytes(storageRef, file)
+  return getDownloadURL(storageRef)
+}
+
+export async function deleteRender(url: string): Promise<void> {
+  if (!url.startsWith('https://')) return // skip legacy base64
+  try {
+    // Extract the path from the Storage URL: .../o/PATH?token=...
+    const match = url.match(/\/o\/(.+?)\?/)
+    if (!match) return
+    const path = decodeURIComponent(match[1])
+    await deleteObject(ref(storage, path))
+  } catch {
+    // already deleted or not found — ignore
+  }
 }
 
 // ─── Tareas Plantilla (config/tareasPlantilla) ────────────────────────────────

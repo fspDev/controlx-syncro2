@@ -7,9 +7,10 @@ import { EstadoBadge } from '@/components/eventos/EstadoBadge'
 import { EventoForm } from '@/components/eventos/EventoForm'
 import { Input } from '@/components/ui/Input'
 import { formatDate } from '@/lib/utils'
+import { uploadRender, deleteRender } from '@/lib/db'
 import {
   ArrowLeft, Edit2, Trash2, Plus, Check, X, Calendar, MapPin,
-  Hammer, User, CheckSquare, ImagePlus, LayoutTemplate
+  Hammer, User, CheckSquare, ImagePlus, LayoutTemplate, Loader2
 } from 'lucide-react'
 
 const MAX_RENDERS = 3
@@ -27,6 +28,7 @@ export function EventoDetailPage() {
   const [deleteTareaId, setDeleteTareaId] = useState<string | null>(null)
   const [lightboxImg, setLightboxImg] = useState<string | null>(null)
   const [newMiTarea, setNewMiTarea] = useState('')
+  const [uploadingRender, setUploadingRender] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   if (!evento) return (
@@ -50,31 +52,27 @@ export function EventoDetailPage() {
     setNewTareaResp('')
   }
 
-  const handleRenderUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleRenderUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
     const current = evento.renders || []
     const slots = MAX_RENDERS - current.length
     if (slots <= 0) return
     const toProcess = files.slice(0, slots)
-    let loaded = 0
-    const newRenders = [...current]
-    toProcess.forEach(file => {
-      const reader = new FileReader()
-      reader.onload = () => {
-        newRenders.push(reader.result as string)
-        loaded++
-        if (loaded === toProcess.length) {
-          updateEvento(evento.id, { renders: newRenders })
-        }
-      }
-      reader.readAsDataURL(file)
-    })
     e.target.value = ''
+    setUploadingRender(true)
+    try {
+      const urls = await Promise.all(toProcess.map(f => uploadRender(evento.id, f)))
+      updateEvento(evento.id, { renders: [...current, ...urls] })
+    } finally {
+      setUploadingRender(false)
+    }
   }
 
-  const removeRender = (idx: number) => {
+  const removeRender = async (idx: number) => {
+    const url = (evento.renders || [])[idx]
     const updated = (evento.renders || []).filter((_, i) => i !== idx)
     updateEvento(evento.id, { renders: updated })
+    await deleteRender(url)
   }
 
   const usuariosOpts = [
@@ -201,15 +199,22 @@ export function EventoDetailPage() {
                 </div>
               ))}
 
-              {/* Empty slots */}
+              {/* Empty slots / upload button */}
               {renders.length < MAX_RENDERS && (
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="aspect-video rounded-lg border-2 border-dashed border-[var(--border)] hover:border-brand-500/50 hover:bg-brand-500/5 transition-all flex flex-col items-center justify-center gap-2 cursor-pointer group"
-                >
-                  <ImagePlus size={20} className="text-gray-600 group-hover:text-brand-400 transition-colors" />
-                  <span className="text-xs text-gray-600 group-hover:text-brand-400 transition-colors">Agregar render</span>
-                </button>
+                uploadingRender ? (
+                  <div className="aspect-video rounded-lg border-2 border-dashed border-brand-500/40 bg-brand-500/5 flex flex-col items-center justify-center gap-2">
+                    <Loader2 size={20} className="text-brand-400 animate-spin" />
+                    <span className="text-xs text-brand-400">Subiendo...</span>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="aspect-video rounded-lg border-2 border-dashed border-[var(--border)] hover:border-brand-500/50 hover:bg-brand-500/5 transition-all flex flex-col items-center justify-center gap-2 cursor-pointer group"
+                  >
+                    <ImagePlus size={20} className="text-gray-600 group-hover:text-brand-400 transition-colors" />
+                    <span className="text-xs text-gray-600 group-hover:text-brand-400 transition-colors">Agregar render</span>
+                  </button>
+                )
               )}
 
               {/* Placeholder slots for visual consistency */}
