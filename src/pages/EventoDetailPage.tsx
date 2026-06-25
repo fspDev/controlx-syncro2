@@ -7,7 +7,7 @@ import { EstadoBadge } from '@/components/eventos/EstadoBadge'
 import { EventoForm } from '@/components/eventos/EventoForm'
 import { Input } from '@/components/ui/Input'
 import { formatDate } from '@/lib/utils'
-import { uploadRender, deleteRender } from '@/lib/db'
+import { uploadRender, deleteRender, saveEventoRenders } from '@/lib/db'
 import {
   ArrowLeft, Edit2, Trash2, Plus, Check, X, Calendar, MapPin,
   Hammer, User, CheckSquare, ImagePlus, LayoutTemplate, Loader2
@@ -62,7 +62,9 @@ export function EventoDetailPage() {
     setUploadingRender(true)
     try {
       const urls = await Promise.all(toProcess.map(f => uploadRender(evento.id, f)))
-      updateEvento(evento.id, { renders: [...current, ...urls] })
+      const newRenders = [...current, ...urls]
+      updateEvento(evento.id, { renders: newRenders })
+      await saveEventoRenders(evento.id, newRenders)
     } finally {
       setUploadingRender(false)
     }
@@ -72,6 +74,7 @@ export function EventoDetailPage() {
     const url = (evento.renders || [])[idx]
     const updated = (evento.renders || []).filter((_, i) => i !== idx)
     updateEvento(evento.id, { renders: updated })
+    await saveEventoRenders(evento.id, updated)
     await deleteRender(url)
   }
 

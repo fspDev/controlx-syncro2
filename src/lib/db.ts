@@ -3,6 +3,7 @@ import {
   doc,
   getDocs,
   setDoc,
+  updateDoc,
   deleteDoc,
   getDoc,
   query,
@@ -230,6 +231,11 @@ export async function deleteClienteDoc(id: string): Promise<void> {
 }
 
 // ─── Renders (Firebase Storage) ──────────────────────────────────────────────
+
+export async function saveEventoRenders(eventoId: string, renders: string[]): Promise<void> {
+  const urls = renders.filter(r => r.startsWith('https://'))
+  await updateDoc(doc(db, 'events', eventoId), { renders: urls, updatedAt: new Date().toISOString() })
+}
 
 export async function uploadRender(eventoId: string, file: File): Promise<string> {
   const ext = file.name.split('.').pop() || 'jpg'
