@@ -8,7 +8,9 @@ import {
   getDoc,
   query,
   where,
+  onSnapshot,
   Timestamp,
+  type Unsubscribe,
 } from 'firebase/firestore'
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 import { db, storage } from '@/lib/firebase'
@@ -163,6 +165,18 @@ function clienteFromFirestore(id: string, data: Record<string, unknown>): Client
 export async function fetchEventos(): Promise<Evento[]> {
   const snap = await getDocs(collection(db, 'events'))
   return snap.docs.map(d => eventoFromFirestore(d.id, d.data() as Record<string, unknown>))
+}
+
+export function subscribeEventos(cb: (eventos: Evento[]) => void): Unsubscribe {
+  return onSnapshot(collection(db, 'events'), snap => {
+    cb(snap.docs.map(d => eventoFromFirestore(d.id, d.data() as Record<string, unknown>)))
+  }, err => console.error('[onSnapshot events]', err))
+}
+
+export function subscribeClientes(cb: (clientes: Cliente[]) => void): Unsubscribe {
+  return onSnapshot(collection(db, 'clientes'), snap => {
+    cb(snap.docs.map(d => clienteFromFirestore(d.id, d.data() as Record<string, unknown>)))
+  }, err => console.error('[onSnapshot clientes]', err))
 }
 
 export async function saveEvento(e: Evento): Promise<void> {

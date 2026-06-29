@@ -11,6 +11,7 @@ import {
 import { auth, secondaryAuth } from '@/lib/firebase'
 import {
   fetchEventos, saveEvento, deleteEventoDoc,
+  subscribeEventos, subscribeClientes,
   fetchTrabajos, saveTrabajo, deleteTrabajoDoc,
   fetchUsuarios, saveUsuario, deleteUsuarioDoc,
   fetchClientes, saveCliente, deleteClienteDoc,
@@ -133,17 +134,18 @@ export const useAppStore = create<AppState>()(
       },
 
       initAuth: () => {
-        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        let unsubEventos: (() => void) | null = null
+        let unsubClientes: (() => void) | null = null
+
+        const unsubAuth = onAuthStateChanged(auth, async (firebaseUser) => {
           try {
             if (firebaseUser) {
               console.log('[auth] user signed in:', firebaseUser.email, 'uid:', firebaseUser.uid)
-              // Load user profile from Firestore
               let profile = await getUsuarioByUid(firebaseUser.uid).catch((e) => {
                 console.warn('[auth] getUsuarioByUid failed (will use fallback):', e?.code || e)
                 return null
               })
               if (!profile) {
-                // Fallback: build from Firebase Auth data
                 const rawEmail = firebaseUser.email || ''
                 const username = rawEmail.endsWith('@controlx.app')
                   ? rawEmail.replace('@controlx.app', '')
@@ -159,9 +161,20 @@ export const useAppStore = create<AppState>()(
                 console.log('[auth] profile loaded from Firestore:', profile)
               }
               set({ currentUser: profile, authLoading: false })
+
+              // Real-time listeners — keep eventos and clientes in sync
+              unsubEventos?.()
+              unsubClientes?.()
+              unsubEventos = subscribeEventos(eventos => set({ eventos }))
+              unsubClientes = subscribeClientes(clientes => set({ clientes }))
+
               await get().loadAllData()
             } else {
               console.log('[auth] no user session')
+              unsubEventos?.()
+              unsubClientes?.()
+              unsubEventos = null
+              unsubClientes = null
               set({
                 currentUser: null,
                 authLoading: false,
@@ -176,7 +189,12 @@ export const useAppStore = create<AppState>()(
             set({ authLoading: false })
           }
         })
-        return unsubscribe
+
+        return () => {
+          unsubAuth()
+          unsubEventos?.()
+          unsubClientes?.()
+        }
       },
 
       loadAllData: async () => {
