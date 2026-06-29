@@ -98,11 +98,13 @@ function eventoToFirestore(e: Evento): Record<string, unknown> {
   const doc: Record<string, unknown> = {
     ...e,
     renders: renderUrls,
-    // keep flat fields for v2
     armadoInicio: e.armadoInicio || null,
     armadoFin: e.armadoFin || null,
     eventoInicio: e.eventoInicio || null,
     eventoFin: e.eventoFin || null,
+    desarme: e.desarme || null,
+    responsableId: e.responsableId || null,
+    carpetaServidor: e.carpetaServidor || null,
     notas: e.notas,
     updatedAt: new Date().toISOString(),
   }
