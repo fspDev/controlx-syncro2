@@ -19,6 +19,26 @@ import type { TareaPlantilla } from '@/store/useAppStore'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+/**
+ * Elimina recursivamente todos los valores `undefined` de un objeto/array.
+ * Firestore rechaza `undefined` en cualquier nivel (incluso anidado dentro
+ * de arrays como `tareas`), por lo que TODO lo que se escribe pasa por acá.
+ */
+function stripUndefined<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value.map(v => stripUndefined(v)) as unknown as T
+  }
+  if (value && typeof value === 'object' && !(value instanceof Timestamp)) {
+    const out: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(value)) {
+      if (v === undefined) continue
+      out[k] = stripUndefined(v)
+    }
+    return out as T
+  }
+  return value
+}
+
 function tsToIso(val: unknown): string {
   if (!val) return ''
   if (val instanceof Timestamp) return val.toDate().toISOString()
@@ -182,7 +202,7 @@ export function subscribeClientes(cb: (clientes: Cliente[]) => void): Unsubscrib
 }
 
 export async function saveEvento(e: Evento): Promise<void> {
-  await setDoc(doc(db, 'events', e.id), eventoToFirestore(e), { merge: true })
+  await setDoc(doc(db, 'events', e.id), stripUndefined(eventoToFirestore(e)), { merge: true })
 }
 
 export async function deleteEventoDoc(id: string): Promise<void> {
@@ -197,7 +217,7 @@ export async function fetchTrabajos(): Promise<TrabajoExterno[]> {
 }
 
 export async function saveTrabajo(j: TrabajoExterno): Promise<void> {
-  await setDoc(doc(db, 'external_jobs', j.id), trabajoToFirestore(j), { merge: true })
+  await setDoc(doc(db, 'external_jobs', j.id), stripUndefined(trabajoToFirestore(j)), { merge: true })
 }
 
 export async function deleteTrabajoDoc(id: string): Promise<void> {
@@ -239,7 +259,7 @@ export async function fetchClientes(): Promise<Cliente[]> {
 }
 
 export async function saveCliente(c: Cliente): Promise<void> {
-  await setDoc(doc(db, 'clientes', c.id), c, { merge: true })
+  await setDoc(doc(db, 'clientes', c.id), stripUndefined({ ...c }), { merge: true })
 }
 
 export async function deleteClienteDoc(id: string): Promise<void> {
