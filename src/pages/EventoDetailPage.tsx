@@ -342,20 +342,28 @@ export function EventoDetailPage() {
             ) : (
               <div className="space-y-2">
                 {evento.tareas.map(tarea => {
-                  const resp = usuarios.find(u => u.id === tarea.responsableId)
                   return (
                     <div key={tarea.id} className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${tarea.completada ? 'border-[var(--border-s)] opacity-60' : 'border-[var(--border)] bg-[var(--bg)]/50'}`}>
                       <button
                         onClick={() => updateTarea(evento.id, tarea.id, { completada: !tarea.completada })}
-                        className={`w-4 h-4 rounded shrink-0 mt-0.5 border-2 flex items-center justify-center transition-all cursor-pointer ${tarea.completada ? 'bg-emerald-500 border-emerald-500' : 'border-[var(--border-h)] hover:border-brand-500'}`}
+                        className={`w-4 h-4 rounded shrink-0 mt-1 border-2 flex items-center justify-center transition-all cursor-pointer ${tarea.completada ? 'bg-emerald-500 border-emerald-500' : 'border-[var(--border-h)] hover:border-brand-500'}`}
                       >
                         {tarea.completada && <Check size={10} className="text-white" strokeWidth={3} />}
                       </button>
                       <div className="flex-1 min-w-0">
                         <p className={`text-sm ${tarea.completada ? 'line-through text-gray-500' : 'text-gray-200'}`}>{tarea.titulo}</p>
-                        {resp && <p className="text-xs text-gray-600 mt-0.5">{resp.displayName || resp.username}</p>}
+                        <select
+                          value={tarea.responsableId || ''}
+                          onChange={e => updateTarea(evento.id, tarea.id, { responsableId: e.target.value || undefined })}
+                          className="mt-1 bg-transparent text-xs text-gray-500 hover:text-gray-300 cursor-pointer focus:outline-none border-none appearance-none"
+                        >
+                          <option value="">— Sin asignar —</option>
+                          {usuarios.map(u => (
+                            <option key={u.id} value={u.id}>{u.displayName || u.username}</option>
+                          ))}
+                        </select>
                       </div>
-                      <button onClick={() => setDeleteTareaId(tarea.id)} className="text-gray-600 hover:text-red-400 transition-colors cursor-pointer p-0.5">
+                      <button onClick={() => setDeleteTareaId(tarea.id)} className="text-gray-600 hover:text-red-400 transition-colors cursor-pointer p-0.5 mt-0.5">
                         <X size={13} />
                       </button>
                     </div>
