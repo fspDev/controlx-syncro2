@@ -1,5 +1,5 @@
 import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer'
-import type { PlanillaGrafica, Evento, Cliente, Usuario } from '@/types'
+import type { PlanillaGrafica, Evento } from '@/types'
 import { TIPO_LABEL, TIPO_COLOR_HEX } from '@/types'
 
 // A4 portrait: 595pt width, 842pt height
@@ -90,22 +90,22 @@ const S = StyleSheet.create({
 interface Props {
   planilla: PlanillaGrafica
   evento: Evento
-  cliente?: Cliente
-  responsable?: Usuario
+  clienteLabel?: string
+  responsableLabel?: string
   rendersPerPage?: 1 | 2
   logoUrl?: string
 }
 
-export function PlanillaPDF({ planilla, evento, cliente, responsable, rendersPerPage = 1, logoUrl }: Props) {
+export function PlanillaPDF({ planilla, evento, clienteLabel, responsableLabel, rendersPerPage = 1, logoUrl }: Props) {
   const now = new Date().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
   const piezas = planilla.piezas
   const ov = planilla.infoOverride
 
   // Título/cliente/lugar/responsable: usan el override de la planilla si existe, sino los del proyecto
   const docTitulo = ov?.titulo || evento.titulo
-  const docCliente = ov?.cliente || cliente?.nombre || '—'
+  const docCliente = ov?.cliente || clienteLabel || '—'
   const docLugar = ov?.lugar || evento.lugar || '—'
-  const docResponsable = ov?.responsable || (responsable ? (responsable.displayName || responsable.username) : '—')
+  const docResponsable = ov?.responsable || responsableLabel || '—'
 
   const HeaderInfo = () => (
     <>

@@ -1,0 +1,48 @@
+import type { Proyecto } from '@/types'
+import { useAppStore } from '@/store/useAppStore'
+import { Input } from '@/components/ui/Input'
+import { Textarea } from '@/components/ui/Textarea'
+import { Select } from '@/components/ui/Select'
+import { ESTADOS_EVENTO, estadoLabel } from '@/lib/utils'
+import { X } from 'lucide-react'
+import type { ProyectoFormData } from '@/components/eventos/ProyectoForm'
+
+interface ProyectoRowFieldsProps {
+  value: ProyectoFormData
+  onChange: (data: ProyectoFormData) => void
+  onRemove?: () => void
+}
+
+export function ProyectoRowFields({ value, onChange, onRemove }: ProyectoRowFieldsProps) {
+  const { clientes, usuarios } = useAppStore()
+
+  const set = (k: keyof ProyectoFormData, v: string | number) => onChange({ ...value, [k]: v })
+
+  const clienteOpts = [
+    { value: '', label: '— Sin cliente —' },
+    ...clientes.map(c => ({ value: c.id, label: c.nombre }))
+  ]
+  const responsableOpts = [
+    { value: '', label: '— Sin asignar —' },
+    ...usuarios.map(u => ({ value: u.id, label: u.displayName || u.username }))
+  ]
+  const estadoOpts = ESTADOS_EVENTO.map(e => ({ value: e, label: estadoLabel(e) }))
+
+  return (
+    <div className="relative bg-[var(--bg)] border border-[var(--border)] rounded-xl p-4 space-y-3">
+      {onRemove && (
+        <button type="button" onClick={onRemove} className="absolute top-3 right-3 p-1 rounded text-gray-600 hover:text-red-400 hover:bg-red-500/10 cursor-pointer transition-all">
+          <X size={14} />
+        </button>
+      )}
+      <Select label="Cliente" value={value.clienteId} onChange={e => set('clienteId', e.target.value)} options={clienteOpts} />
+      <div className="grid grid-cols-2 gap-3">
+        <Select label="Estado" value={value.estado} onChange={e => set('estado', e.target.value as Proyecto['estado'])} options={estadoOpts} />
+        <Select label="Responsable" value={value.responsableId || ''} onChange={e => set('responsableId', e.target.value)} options={responsableOpts} />
+      </div>
+      <Input label="Fabricación" value={value.fabricacion} onChange={e => set('fabricacion', e.target.value)} placeholder="Descripción de lo que se fabrica/arma" />
+      <Input label="Importe ($)" type="number" value={value.importe} onChange={e => set('importe', parseFloat(e.target.value) || 0)} min={0} />
+      <Textarea label="Notas" value={value.notas} onChange={e => set('notas', e.target.value)} placeholder="Notas internas de este proyecto..." rows={2} />
+    </div>
+  )
+}

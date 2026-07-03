@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '@/store/useAppStore'
-import { Dialog } from '@/components/ui/Dialog'
-import { EventoForm } from '@/components/eventos/EventoForm'
+import { NuevoEventoDialog } from '@/components/eventos/NuevoEventoDialog'
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 
 type CalView = 'armado' | 'evento' | 'desarme'
@@ -11,7 +10,6 @@ interface CalEvent {
   eventoId: string
   titulo: string
   type: CalView
-  estado: string
   dateStr: string
 }
 
@@ -31,7 +29,7 @@ const TYPE_LABEL: Record<CalView, string> = {
 }
 
 export function CalendarioPage() {
-  const { eventos, addEvento } = useAppStore()
+  const { eventos } = useAppStore()
   const navigate = useNavigate()
   const today = new Date()
   const [year, setYear] = useState(today.getFullYear())
@@ -50,23 +48,17 @@ export function CalendarioPage() {
   const prevMonth = () => { if (month === 0) { setYear(y => y - 1); setMonth(11) } else setMonth(m => m - 1) }
   const nextMonth = () => { if (month === 11) { setYear(y => y + 1); setMonth(0) } else setMonth(m => m + 1) }
 
-  const handleNewEvento = (data: Parameters<typeof addEvento>[0]) => {
-    const id = addEvento(data)
-    setNewFromDate(null)
-    navigate(`/proyectos/${id}`)
-  }
-
   // Build calendar events per date
   const calEvents: Record<string, CalEvent[]> = {}
   const addCalEvent = (dateStr: string | undefined, type: CalView, e: typeof eventos[0]) => {
     if (!dateStr || !filters.has(type)) return
     const d = dateStr.slice(0, 10)
     if (!calEvents[d]) calEvents[d] = []
-    calEvents[d].push({ eventoId: e.id, titulo: e.titulo, type, estado: e.estado, dateStr: d })
+    calEvents[d].push({ eventoId: e.id, titulo: e.titulo, type, dateStr: d })
   }
 
   eventos.forEach(e => {
-    if (e.estado === 'Cancelado') return
+    if (e.proyectos.length > 0 && e.proyectos.every(p => p.estado === 'Cancelado')) return
     addCalEvent(e.armadoInicio, 'armado', e)
     if (e.armadoFin) addCalEvent(e.armadoFin, 'armado', e)
     addCalEvent(e.eventoInicio, 'evento', e)
@@ -191,19 +183,13 @@ export function CalendarioPage() {
       </div>
 
       {/* New evento dialog from calendar */}
-      <Dialog
+      <NuevoEventoDialog
         open={!!newFromDate}
         onClose={() => setNewFromDate(null)}
+        onCreated={id => { setNewFromDate(null); navigate(`/proyectos/${id}`) }}
         title={`Nuevo Evento — ${newFromDate ? new Date(newFromDate + 'T12:00:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' }) : ''}`}
-        size="lg"
-      >
-        <EventoForm
-          initial={{ eventoInicio: newFromDate || '' }}
-          onSubmit={handleNewEvento}
-          onCancel={() => setNewFromDate(null)}
-          submitLabel="Crear Evento"
-        />
-      </Dialog>
+        initial={{ eventoInicio: newFromDate || '' }}
+      />
     </div>
   )
 }

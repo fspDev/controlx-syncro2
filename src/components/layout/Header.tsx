@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, Menu, CheckSquare } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
+import { proyectoClientesLabel } from '@/lib/utils'
 
 export function Header() {
   const [query, setQuery] = useState('')
@@ -13,15 +14,12 @@ export function Header() {
   const results = query.trim().length > 1
     ? [
         ...eventos.filter(e => {
-          const c = clientes.find(c => c.id === e.clienteId)
           const q = query.toLowerCase()
+          const clientesNombres = e.proyectos.map(p => clientes.find(c => c.id === p.clienteId)?.nombre || '')
           return e.titulo.toLowerCase().includes(q) ||
             e.lugar.toLowerCase().includes(q) ||
-            c?.nombre.toLowerCase().includes(q)
-        }).slice(0, 5).map(e => {
-          const c = clientes.find(c => c.id === e.clienteId)
-          return { type: 'evento' as const, id: e.id, label: e.titulo, sub: c?.nombre || '' }
-        }),
+            clientesNombres.some(n => n.toLowerCase().includes(q))
+        }).slice(0, 5).map(e => ({ type: 'evento' as const, id: e.id, label: e.titulo, sub: proyectoClientesLabel(e, clientes) })),
         ...clientes.filter(c => {
           const q = query.toLowerCase()
           return c.nombre.toLowerCase().includes(q) || c.contacto?.toLowerCase().includes(q)

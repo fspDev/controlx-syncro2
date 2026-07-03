@@ -3,14 +3,15 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAppStore } from '@/store/useAppStore'
 import { Button } from '@/components/ui/Button'
 import { Dialog, ConfirmDialog } from '@/components/ui/Dialog'
-import { EstadoBadge } from '@/components/eventos/EstadoBadge'
 import { EventoForm } from '@/components/eventos/EventoForm'
-import { Input } from '@/components/ui/Input'
-import { formatDate } from '@/lib/utils'
+import { ProyectoForm } from '@/components/eventos/ProyectoForm'
+import { EstadoSelector } from '@/components/eventos/EstadoSelector'
+import { formatDate, formatCurrency } from '@/lib/utils'
 import { uploadRender, deleteRender, saveEventoRenders } from '@/lib/db'
+import type { Evento, Proyecto } from '@/types'
 import {
   ArrowLeft, Edit2, Trash2, Plus, Check, X, Calendar, MapPin,
-  Hammer, User, CheckSquare, ImagePlus, LayoutTemplate, Loader2
+  Hammer, User, CheckSquare, ImagePlus, LayoutTemplate, Loader2, DollarSign
 } from 'lucide-react'
 
 const MAX_RENDERS = 3
@@ -18,14 +19,12 @@ const MAX_RENDERS = 3
 export function EventoDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { eventos, clientes, usuarios, updateEvento, deleteEvento, addTarea, updateTarea, deleteTarea, tareasUsuario, addTareaUsuario, updateTareaUsuario, deleteTareaUsuario } = useAppStore()
+  const { eventos, updateEvento, deleteEvento, addProyecto, tareasUsuario, addTareaUsuario, updateTareaUsuario, deleteTareaUsuario } = useAppStore()
 
   const evento = eventos.find(e => e.id === id)
   const [showEdit, setShowEdit] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
-  const [newTarea, setNewTarea] = useState('')
-  const [newTareaResp, setNewTareaResp] = useState('')
-  const [deleteTareaId, setDeleteTareaId] = useState<string | null>(null)
+  const [showAddProyecto, setShowAddProyecto] = useState(false)
   const [lightboxImg, setLightboxImg] = useState<string | null>(null)
   const [newMiTarea, setNewMiTarea] = useState('')
   const [uploadingRender, setUploadingRender] = useState(false)
@@ -39,18 +38,8 @@ export function EventoDetailPage() {
   )
 
   const renders = evento.renders || []
-
-  const cliente = clientes.find(c => c.id === evento.clienteId)
-  const responsable = usuarios.find(u => u.id === evento.responsableId)
-  const tareasPend = evento.tareas.filter(t => !t.completada).length
-  const tareasTotal = evento.tareas.length
-
-  const handleAddTarea = () => {
-    if (!newTarea.trim()) return
-    addTarea(evento.id, { titulo: newTarea.trim(), responsableId: newTareaResp || undefined, completada: false })
-    setNewTarea('')
-    setNewTareaResp('')
-  }
+  const tareasPend = evento.proyectos.reduce((s, p) => s + p.tareas.filter(t => !t.completada).length, 0)
+  const tareasTotal = evento.proyectos.reduce((s, p) => s + p.tareas.length, 0)
 
   const handleRenderUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
@@ -78,18 +67,6 @@ export function EventoDetailPage() {
     await deleteRender(url)
   }
 
-  const usuariosOpts = [
-    { value: '', label: '— Sin asignar —' },
-    ...usuarios.map(u => ({ value: u.id, label: u.displayName || u.username }))
-  ]
-
-  const infoItems = [
-    { icon: User, label: 'Cliente', value: cliente?.nombre || '—', onClick: cliente ? () => navigate(`/clientes/${cliente.id}`) : undefined },
-    { icon: MapPin, label: 'Lugar', value: evento.lugar || '—' },
-    { icon: Hammer, label: 'Fabricación', value: evento.fabricacion || '—' },
-    { icon: User, label: 'Responsable', value: responsable ? (responsable.displayName || responsable.username) : '— Sin asignar —' },
-  ]
-
   const fechas = [
     { label: 'Armado', value: evento.armadoInicio ? `${formatDate(evento.armadoInicio)}${evento.armadoFin ? ` → ${formatDate(evento.armadoFin)}` : ''}` : '—' },
     { label: 'Evento', value: evento.eventoInicio ? `${formatDate(evento.eventoInicio)}${evento.eventoFin ? ` → ${formatDate(evento.eventoFin)}` : ''}` : '—' },
@@ -105,7 +82,6 @@ export function EventoDetailPage() {
         </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 mb-1 flex-wrap">
-            <EstadoBadge estado={evento.estado} />
             {tareasTotal > 0 && (
               <span className="text-xs text-gray-500">{tareasTotal - tareasPend}/{tareasTotal} tareas completadas</span>
             )}
@@ -132,32 +108,31 @@ export function EventoDetailPage() {
         {/* Main column */}
         <div className="lg:col-span-2 space-y-5">
 
-          {/* Info card */}
+          {/* Info card compartida */}
           <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5">
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">Información</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {infoItems.map(({ icon: Icon, label, value, onClick }) => (
-                <div key={label}>
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <Icon size={12} className="text-gray-600" />
-                    <span className="text-xs text-gray-500">{label}</span>
-                  </div>
-                  {onClick ? (
-                    <button onClick={onClick} className="text-sm text-brand-400 hover:text-brand-300 cursor-pointer transition-colors text-left">
-                      {value}
-                    </button>
-                  ) : (
-                    <p className="text-sm text-gray-200">{value}</p>
-                  )}
+              <div>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <MapPin size={12} className="text-gray-600" />
+                  <span className="text-xs text-gray-500">Lugar</span>
                 </div>
-              ))}
-            </div>
-            {evento.notas && (
-              <div className="mt-4 pt-4 border-t border-[var(--border)]">
-                <p className="text-xs text-gray-500 mb-1">Notas</p>
-                <p className="text-sm text-gray-300 whitespace-pre-wrap">{evento.notas}</p>
+                <p className="text-sm text-gray-200">{evento.lugar || '—'}</p>
               </div>
-            )}
+            </div>
+          </div>
+
+          {/* Proyectos */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Proyectos</h3>
+              <button onClick={() => setShowAddProyecto(true)} className="flex items-center gap-1 text-xs text-brand-400 hover:text-brand-300 cursor-pointer transition-colors">
+                <Plus size={13} /> Agregar proyecto
+              </button>
+            </div>
+            {evento.proyectos.map(proyecto => (
+              <ProyectoCard key={proyecto.id} evento={evento} proyecto={proyecto} />
+            ))}
           </div>
 
           {/* Renders */}
@@ -238,7 +213,7 @@ export function EventoDetailPage() {
             />
           </div>
 
-          {/* Mis tareas personales en este proyecto */}
+          {/* Mis tareas personales en este evento */}
           {(() => {
             const misTareas = tareasUsuario.filter(t => t.eventoId === evento.id)
             const pendMias = misTareas.filter(t => !t.completada).length
@@ -304,74 +279,6 @@ export function EventoDetailPage() {
               </div>
             )
           })()}
-
-          {/* Tareas del proyecto */}
-          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <CheckSquare size={15} className="text-gray-500" />
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Tareas del proyecto</h3>
-              </div>
-              {tareasTotal > 0 && (
-                <span className="text-xs text-gray-600">{tareasTotal - tareasPend} de {tareasTotal}</span>
-              )}
-            </div>
-
-            <div className="flex gap-2 mb-4">
-              <input
-                value={newTarea}
-                onChange={e => setNewTarea(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleAddTarea()}
-                placeholder="Nueva tarea..."
-                className="flex-1 bg-[var(--bg)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-gray-200 placeholder:text-gray-600 focus:border-brand-500/50 focus:outline-none transition-all"
-              />
-              <select
-                value={newTareaResp}
-                onChange={e => setNewTareaResp(e.target.value)}
-                className="bg-[var(--bg)] border border-[var(--border)] rounded-lg px-2 py-2 text-sm text-gray-400 focus:outline-none cursor-pointer"
-              >
-                {usuariosOpts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-              <Button size="sm" variant="primary" onClick={handleAddTarea} disabled={!newTarea.trim()}>
-                <Plus size={13} />
-              </Button>
-            </div>
-
-            {evento.tareas.length === 0 ? (
-              <p className="text-sm text-gray-600 text-center py-4">No hay tareas aún</p>
-            ) : (
-              <div className="space-y-2">
-                {evento.tareas.map(tarea => {
-                  return (
-                    <div key={tarea.id} className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${tarea.completada ? 'border-[var(--border-s)] opacity-60' : 'border-[var(--border)] bg-[var(--bg)]/50'}`}>
-                      <button
-                        onClick={() => updateTarea(evento.id, tarea.id, { completada: !tarea.completada })}
-                        className={`w-4 h-4 rounded shrink-0 mt-1 border-2 flex items-center justify-center transition-all cursor-pointer ${tarea.completada ? 'bg-emerald-500 border-emerald-500' : 'border-[var(--border-h)] hover:border-brand-500'}`}
-                      >
-                        {tarea.completada && <Check size={10} className="text-white" strokeWidth={3} />}
-                      </button>
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm ${tarea.completada ? 'line-through text-gray-500' : 'text-gray-200'}`}>{tarea.titulo}</p>
-                        <select
-                          value={tarea.responsableId || ''}
-                          onChange={e => updateTarea(evento.id, tarea.id, { responsableId: e.target.value || undefined })}
-                          className="mt-1 bg-transparent text-xs text-gray-500 hover:text-gray-300 cursor-pointer focus:outline-none border-none appearance-none"
-                        >
-                          <option value="">— Sin asignar —</option>
-                          {usuarios.map(u => (
-                            <option key={u.id} value={u.id}>{u.displayName || u.username}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <button onClick={() => setDeleteTareaId(tarea.id)} className="text-gray-600 hover:text-red-400 transition-colors cursor-pointer p-0.5 mt-0.5">
-                        <X size={13} />
-                      </button>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
         </div>
 
         {/* Right sidebar */}
@@ -439,6 +346,15 @@ export function EventoDetailPage() {
         />
       </Dialog>
 
+      {/* Add Proyecto Dialog */}
+      <Dialog open={showAddProyecto} onClose={() => setShowAddProyecto(false)} title="Agregar Proyecto" size="lg">
+        <ProyectoForm
+          onSubmit={(data) => { addProyecto(evento.id, data); setShowAddProyecto(false) }}
+          onCancel={() => setShowAddProyecto(false)}
+          submitLabel="Agregar"
+        />
+      </Dialog>
+
       <ConfirmDialog
         open={showDelete}
         onClose={() => setShowDelete(false)}
@@ -447,11 +363,173 @@ export function EventoDetailPage() {
         message={`¿Estás seguro que querés eliminar "${evento.titulo}"? Esta acción no se puede deshacer.`}
         confirmLabel="Eliminar"
       />
+    </div>
+  )
+}
+
+function ProyectoCard({ evento, proyecto }: { evento: Evento; proyecto: Proyecto }) {
+  const navigate = useNavigate()
+  const { clientes, usuarios, updateProyecto, deleteProyecto, addTarea, updateTarea, deleteTarea } = useAppStore()
+  const [showEdit, setShowEdit] = useState(false)
+  const [showDelete, setShowDelete] = useState(false)
+  const [deleteTareaId, setDeleteTareaId] = useState<string | null>(null)
+  const [newTarea, setNewTarea] = useState('')
+  const [newTareaResp, setNewTareaResp] = useState('')
+
+  const cliente = clientes.find(c => c.id === proyecto.clienteId)
+  const responsable = usuarios.find(u => u.id === proyecto.responsableId)
+  const tareasPend = proyecto.tareas.filter(t => !t.completada).length
+
+  const usuariosOpts = [
+    { value: '', label: '— Sin asignar —' },
+    ...usuarios.map(u => ({ value: u.id, label: u.displayName || u.username }))
+  ]
+
+  const handleAddTarea = () => {
+    if (!newTarea.trim()) return
+    addTarea(evento.id, proyecto.id, { titulo: newTarea.trim(), responsableId: newTareaResp || undefined, completada: false })
+    setNewTarea('')
+    setNewTareaResp('')
+  }
+
+  return (
+    <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <EstadoSelector estado={proyecto.estado} onChange={estado => updateProyecto(evento.id, proyecto.id, { estado })} />
+            {proyecto.tareas.length > 0 && (
+              <span className="text-xs text-gray-500">{proyecto.tareas.length - tareasPend}/{proyecto.tareas.length} tareas</span>
+            )}
+          </div>
+          {cliente ? (
+            <button onClick={() => navigate(`/clientes/${cliente.id}`)} className="text-sm font-medium text-brand-400 hover:text-brand-300 cursor-pointer transition-colors">
+              {cliente.nombre}
+            </button>
+          ) : (
+            <p className="text-sm font-medium text-gray-500">— Sin cliente —</p>
+          )}
+        </div>
+        <div className="flex gap-1 shrink-0">
+          <button onClick={() => setShowEdit(true)} className="p-1.5 rounded text-gray-600 hover:text-gray-300 hover:bg-[var(--surface-2)] cursor-pointer transition-all"><Edit2 size={13} /></button>
+          <button onClick={() => setShowDelete(true)} className="p-1.5 rounded text-gray-600 hover:text-red-400 hover:bg-red-500/10 cursor-pointer transition-all"><Trash2 size={13} /></button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div>
+          <div className="flex items-center gap-1.5 mb-1">
+            <Hammer size={12} className="text-gray-600" />
+            <span className="text-xs text-gray-500">Fabricación</span>
+          </div>
+          <p className="text-sm text-gray-200">{proyecto.fabricacion || '—'}</p>
+        </div>
+        <div>
+          <div className="flex items-center gap-1.5 mb-1">
+            <User size={12} className="text-gray-600" />
+            <span className="text-xs text-gray-500">Responsable</span>
+          </div>
+          <p className="text-sm text-gray-200">{responsable ? (responsable.displayName || responsable.username) : '— Sin asignar —'}</p>
+        </div>
+        <div>
+          <div className="flex items-center gap-1.5 mb-1">
+            <DollarSign size={12} className="text-gray-600" />
+            <span className="text-xs text-gray-500">Importe</span>
+          </div>
+          <p className="text-sm text-gray-200">{formatCurrency(proyecto.importe)}</p>
+        </div>
+      </div>
+
+      {proyecto.notas && (
+        <div className="pt-2 border-t border-[var(--border)]">
+          <p className="text-xs text-gray-500 mb-1">Notas</p>
+          <p className="text-sm text-gray-300 whitespace-pre-wrap">{proyecto.notas}</p>
+        </div>
+      )}
+
+      {/* Tareas del proyecto */}
+      <div className="pt-3 border-t border-[var(--border)]">
+        <div className="flex items-center gap-2 mb-3">
+          <CheckSquare size={13} className="text-gray-500" />
+          <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Tareas</h4>
+        </div>
+
+        <div className="flex gap-2 mb-3">
+          <input
+            value={newTarea}
+            onChange={e => setNewTarea(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleAddTarea()}
+            placeholder="Nueva tarea..."
+            className="flex-1 bg-[var(--bg)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-gray-200 placeholder:text-gray-600 focus:border-brand-500/50 focus:outline-none transition-all"
+          />
+          <select
+            value={newTareaResp}
+            onChange={e => setNewTareaResp(e.target.value)}
+            className="bg-[var(--bg)] border border-[var(--border)] rounded-lg px-2 py-2 text-sm text-gray-400 focus:outline-none cursor-pointer"
+          >
+            {usuariosOpts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+          <Button size="sm" variant="primary" onClick={handleAddTarea} disabled={!newTarea.trim()}>
+            <Plus size={13} />
+          </Button>
+        </div>
+
+        {proyecto.tareas.length === 0 ? (
+          <p className="text-sm text-gray-600 text-center py-4">No hay tareas aún</p>
+        ) : (
+          <div className="space-y-2">
+            {proyecto.tareas.map(tarea => (
+              <div key={tarea.id} className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${tarea.completada ? 'border-[var(--border-s)] opacity-60' : 'border-[var(--border)] bg-[var(--bg)]/50'}`}>
+                <button
+                  onClick={() => updateTarea(evento.id, proyecto.id, tarea.id, { completada: !tarea.completada })}
+                  className={`w-4 h-4 rounded shrink-0 mt-1 border-2 flex items-center justify-center transition-all cursor-pointer ${tarea.completada ? 'bg-emerald-500 border-emerald-500' : 'border-[var(--border-h)] hover:border-brand-500'}`}
+                >
+                  {tarea.completada && <Check size={10} className="text-white" strokeWidth={3} />}
+                </button>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm ${tarea.completada ? 'line-through text-gray-500' : 'text-gray-200'}`}>{tarea.titulo}</p>
+                  <select
+                    value={tarea.responsableId || ''}
+                    onChange={e => updateTarea(evento.id, proyecto.id, tarea.id, { responsableId: e.target.value || undefined })}
+                    className="mt-1 bg-transparent text-xs text-gray-500 hover:text-gray-300 cursor-pointer focus:outline-none border-none appearance-none"
+                  >
+                    <option value="">— Sin asignar —</option>
+                    {usuarios.map(u => (
+                      <option key={u.id} value={u.id}>{u.displayName || u.username}</option>
+                    ))}
+                  </select>
+                </div>
+                <button onClick={() => setDeleteTareaId(tarea.id)} className="text-gray-600 hover:text-red-400 transition-colors cursor-pointer p-0.5 mt-0.5">
+                  <X size={13} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <Dialog open={showEdit} onClose={() => setShowEdit(false)} title="Editar Proyecto" size="lg">
+        <ProyectoForm
+          initial={proyecto}
+          onSubmit={(data) => { updateProyecto(evento.id, proyecto.id, data); setShowEdit(false) }}
+          onCancel={() => setShowEdit(false)}
+          submitLabel="Guardar cambios"
+        />
+      </Dialog>
+
+      <ConfirmDialog
+        open={showDelete}
+        onClose={() => setShowDelete(false)}
+        onConfirm={() => deleteProyecto(evento.id, proyecto.id)}
+        title="Eliminar proyecto"
+        message={`¿Eliminar el proyecto de "${cliente?.nombre || 'este cliente'}"? Esta acción no se puede deshacer.`}
+        confirmLabel="Eliminar"
+      />
 
       <ConfirmDialog
         open={!!deleteTareaId}
         onClose={() => setDeleteTareaId(null)}
-        onConfirm={() => { if (deleteTareaId) deleteTarea(evento.id, deleteTareaId) }}
+        onConfirm={() => { if (deleteTareaId) deleteTarea(evento.id, proyecto.id, deleteTareaId) }}
         title="Eliminar tarea"
         message="¿Querés eliminar esta tarea?"
         confirmLabel="Eliminar"

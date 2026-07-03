@@ -1,60 +1,16 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '@/store/useAppStore'
 import { Button } from '@/components/ui/Button'
-import { Dialog } from '@/components/ui/Dialog'
 import { Badge } from '@/components/ui/Badge'
-import { EventoForm } from '@/components/eventos/EventoForm'
-import { ESTADO_COLORS, ESTADOS_EVENTO, estadoLabel, formatDate } from '@/lib/utils'
+import { NuevoEventoDialog } from '@/components/eventos/NuevoEventoDialog'
+import { EstadoSelector } from '@/components/eventos/EstadoSelector'
+import { ESTADO_COLORS, ESTADOS_EVENTO, estadoLabel, formatDate, proyectoClientesLabel, proyectoResponsablesLabel } from '@/lib/utils'
 import type { EventoEstado } from '@/types'
-import { Plus, Filter, ChevronRight, AlertCircle, ChevronDown, Check } from 'lucide-react'
-
-function EstadoSelector({ eventoId, estado }: { eventoId: string; estado: EventoEstado }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  const { updateEvento } = useAppStore()
-  const cols = ESTADO_COLORS[estado]
-
-  useEffect(() => {
-    if (!open) return
-    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [open])
-
-  return (
-    <div ref={ref} className="relative" onClick={e => e.stopPropagation()}>
-      <button
-        onClick={() => setOpen(o => !o)}
-        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium cursor-pointer transition-opacity hover:opacity-80 ${cols.bg} ${cols.text}`}
-      >
-        {estadoLabel(estado)}
-        <ChevronDown size={10} />
-      </button>
-      {open && (
-        <div className="absolute top-full mt-1 left-0 bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-xl z-20 py-1 min-w-[150px]">
-          {ESTADOS_EVENTO.map(s => {
-            const c = ESTADO_COLORS[s]
-            return (
-              <button
-                key={s}
-                onClick={() => { updateEvento(eventoId, { estado: s }); setOpen(false) }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs hover:bg-[var(--surface-2)] transition-colors cursor-pointer text-left"
-              >
-                <span className={`w-2 h-2 rounded-full shrink-0 ${c.dot}`} />
-                <span className={`flex-1 ${c.text}`}>{estadoLabel(s)}</span>
-                {s === estado && <Check size={11} className="text-gray-500" />}
-              </button>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-}
+import { Plus, Filter, ChevronRight, AlertCircle } from 'lucide-react'
 
 export function ProyectosPage() {
-  const { eventos, clientes, usuarios, addEvento } = useAppStore()
+  const { eventos, clientes, usuarios, updateProyecto } = useAppStore()
   const navigate = useNavigate()
   const [showNew, setShowNew] = useState(false)
   const [filterEstados, setFilterEstados] = useState<Set<EventoEstado>>(
@@ -71,19 +27,13 @@ export function ProyectosPage() {
   }
 
   const filtered = eventos.filter(e => {
-    if (filterEstados.size > 0 && !filterEstados.has(e.estado)) return false
-    if (filterCliente && e.clienteId !== filterCliente) return false
+    if (filterEstados.size > 0 && !e.proyectos.some(p => filterEstados.has(p.estado))) return false
+    if (filterCliente && !e.proyectos.some(p => p.clienteId === filterCliente)) return false
     return true
   }).sort((a, b) => {
     if (a.eventoInicio && b.eventoInicio) return new Date(a.eventoInicio).getTime() - new Date(b.eventoInicio).getTime()
     return 0
   })
-
-  const handleNew = (data: Parameters<typeof addEvento>[0]) => {
-    const id = addEvento(data)
-    setShowNew(false)
-    navigate(`/proyectos/${id}`)
-  }
 
   return (
     <div className="space-y-5">
@@ -141,8 +91,7 @@ export function ProyectosPage() {
             No se encontraron eventos
           </div>
         ) : filtered.map(e => {
-          const cliente = clientes.find(c => c.id === e.clienteId)
-          const tareasPend = e.tareas.filter(t => !t.completada).length
+          const tareasPend = e.proyectos.reduce((s, p) => s + p.tareas.filter(t => !t.completada).length, 0)
           return (
             <div
               key={e.id}
@@ -154,12 +103,14 @@ export function ProyectosPage() {
                   <span className="text-sm font-medium text-gray-200 truncate">{e.titulo}</span>
                   {tareasPend > 0 && <AlertCircle size={13} className="text-amber-400 shrink-0" />}
                 </div>
-                <div className="shrink-0" onClick={ev => ev.stopPropagation()}>
-                  <EstadoSelector eventoId={e.id} estado={e.estado} />
+                <div className="flex gap-1 flex-wrap justify-end shrink-0">
+                  {e.proyectos.map(p => (
+                    <EstadoSelector key={p.id} estado={p.estado} onChange={estado => updateProyecto(e.id, p.id, { estado })} />
+                  ))}
                 </div>
               </div>
               <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
-                {cliente && <span>{cliente.nombre}</span>}
+                <span>{proyectoClientesLabel(e, clientes)}</span>
                 {e.lugar && <><span>·</span><span>{e.lugar}</span></>}
                 {e.eventoInicio && <><span>·</span><span>{formatDate(e.eventoInicio)}</span></>}
               </div>
@@ -187,9 +138,7 @@ export function ProyectosPage() {
             {filtered.length === 0 ? (
               <tr><td colSpan={7} className="px-4 py-12 text-center text-gray-500 text-sm">No se encontraron eventos</td></tr>
             ) : filtered.map(e => {
-              const cliente = clientes.find(c => c.id === e.clienteId)
-              const responsable = usuarios.find(u => u.id === e.responsableId)
-              const tareasPend = e.tareas.filter(t => !t.completada).length
+              const tareasPend = e.proyectos.reduce((s, p) => s + p.tareas.filter(t => !t.completada).length, 0)
               return (
                 <tr
                   key={e.id}
@@ -206,21 +155,16 @@ export function ProyectosPage() {
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-400">{cliente?.nombre || '—'}</td>
+                  <td className="px-4 py-3 text-sm text-gray-400">{proyectoClientesLabel(e, clientes)}</td>
                   <td className="px-4 py-3 text-sm text-gray-400 hidden md:table-cell">{e.lugar || '—'}</td>
-                  <td className="px-4 py-3 text-sm text-gray-400 hidden lg:table-cell">
-                    {responsable ? (
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-5 h-5 rounded-full bg-brand-500/20 flex items-center justify-center">
-                          <span className="text-xs text-brand-400">{(responsable.displayName || responsable.username).slice(0,1)}</span>
-                        </div>
-                        <span>{responsable.displayName || responsable.username}</span>
-                      </div>
-                    ) : <span className="text-gray-600">Sin asignar</span>}
-                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-400 hidden lg:table-cell">{proyectoResponsablesLabel(e, usuarios)}</td>
                   <td className="px-4 py-3 text-sm text-gray-400">{formatDate(e.eventoInicio)}</td>
                   <td className="px-4 py-3">
-                    <EstadoSelector eventoId={e.id} estado={e.estado} />
+                    <div className="flex gap-1 flex-wrap">
+                      {e.proyectos.map(p => (
+                        <EstadoSelector key={p.id} estado={p.estado} onChange={estado => updateProyecto(e.id, p.id, { estado })} />
+                      ))}
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-gray-600"><ChevronRight size={15} /></td>
                 </tr>
@@ -237,7 +181,7 @@ export function ProyectosPage() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {ESTADOS_EVENTO.slice(0,4).map(estado => {
             const cols = ESTADO_COLORS[estado]
-            const count = eventos.filter(e => e.estado === estado).length
+            const count = eventos.flatMap(e => e.proyectos).filter(p => p.estado === estado).length
             return (
               <div key={estado} className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-3">
                 <div className="flex items-center gap-2 mb-2">
@@ -251,9 +195,7 @@ export function ProyectosPage() {
         </div>
       </div>
 
-      <Dialog open={showNew} onClose={() => setShowNew(false)} title="Nuevo Evento" size="lg">
-        <EventoForm onSubmit={handleNew} onCancel={() => setShowNew(false)} submitLabel="Crear Evento" />
-      </Dialog>
+      <NuevoEventoDialog open={showNew} onClose={() => setShowNew(false)} onCreated={id => { setShowNew(false); navigate(`/proyectos/${id}`) }} />
     </div>
   )
 }

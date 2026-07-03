@@ -1,6 +1,6 @@
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
-import type { EventoEstado, TrabajoEstado } from '@/types'
+import type { Cliente, Evento, EventoEstado, TrabajoEstado } from '@/types'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -36,16 +36,49 @@ export const ESTADO_COLORS = new Proxy(_ESTADO_COLORS, {
 
 export const TRABAJO_ESTADO_COLORS: Record<TrabajoEstado, { bg: string; text: string }> = {
   'Pendiente':   { bg: 'bg-amber-500/15',  text: 'text-amber-400' },
-  'En Proceso':  { bg: 'bg-blue-500/15',   text: 'text-blue-400' },
-  'Entregado':   { bg: 'bg-violet-500/15', text: 'text-violet-400' },
   'Cobrado':     { bg: 'bg-emerald-500/15',text: 'text-emerald-400' },
 }
 
 export const ESTADOS_EVENTO: EventoEstado[] = ['Negociacion', 'Confirmado', 'Armado', 'Finalizado', 'Cancelado']
-export const ESTADOS_TRABAJO: TrabajoEstado[] = ['Pendiente', 'En Proceso', 'Entregado', 'Cobrado']
+export const ESTADOS_TRABAJO: TrabajoEstado[] = ['Pendiente', 'Cobrado']
 export const MEDIOS_PAGO: string[] = ['Efectivo', 'Transferencia', 'Cheque', 'Tarjeta']
 
 export function estadoLabel(estado: EventoEstado): string {
   if (estado === 'Negociacion') return 'Negociación'
   return estado
+}
+
+export function proyectoEstadosUnicos(evento: Evento): EventoEstado[] {
+  return [...new Set(evento.proyectos.map(p => p.estado))]
+}
+
+export function proyectoClientesLabel(evento: Evento, clientes: Cliente[]): string {
+  const nombres = evento.proyectos.map(p => clientes.find(c => c.id === p.clienteId)?.nombre || '—')
+  if (nombres.length <= 2) return nombres.join(', ')
+  return `${nombres.slice(0, 2).join(', ')} +${nombres.length - 2}`
+}
+
+export function proyectoResponsablesLabel(evento: Evento, usuarios: { id: string; displayName?: string; username: string }[]): string {
+  const nombres = [...new Set(evento.proyectos.map(p => p.responsableId))]
+    .filter((id): id is string => !!id)
+    .map(id => usuarios.find(u => u.id === id))
+    .filter((u): u is NonNullable<typeof u> => !!u)
+    .map(u => u.displayName || u.username)
+  if (nombres.length === 0) return 'Sin asignar'
+  if (nombres.length === 1) return nombres[0]
+  return 'Varios'
+}
+
+// Un evento se da por finalizado cuando pasó su fecha de desarme (o, si no tiene,
+// la fecha de fin del evento). Los proyectos Cancelados no se tocan.
+export function applyAutoFinalizado(evento: Evento): Evento {
+  const cutoff = evento.desarme || evento.eventoFin
+  if (!cutoff) return evento
+  const cutoffEndOfDay = new Date(`${cutoff.slice(0, 10)}T23:59:59`)
+  if (cutoffEndOfDay >= new Date()) return evento
+  if (!evento.proyectos.some(p => p.estado !== 'Finalizado' && p.estado !== 'Cancelado')) return evento
+  return {
+    ...evento,
+    proyectos: evento.proyectos.map(p => p.estado === 'Cancelado' ? p : { ...p, estado: 'Finalizado' }),
+  }
 }

@@ -14,8 +14,9 @@ import {
 } from 'firebase/firestore'
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 import { db, storage } from '@/lib/firebase'
-import type { Evento, TrabajoExterno, Usuario, Cliente, TareaUsuario } from '@/types'
+import type { Evento, Proyecto, Tarea, TrabajoExterno, Usuario, Cliente, TareaUsuario, RegistroAdmin, MedioPago } from '@/types'
 import type { TareaPlantilla } from '@/store/useAppStore'
+import { genId, applyAutoFinalizado } from '@/lib/utils'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -48,15 +49,15 @@ function tsToIso(val: unknown): string {
 
 // ─── Normalizers ─────────────────────────────────────────────────────────────
 
-function normalizeEstadoEvento(s: unknown): Evento['estado'] {
-  const VALID: Evento['estado'][] = ['Negociacion', 'Confirmado', 'Armado', 'Finalizado', 'Cancelado']
+function normalizeEstadoEvento(s: unknown): Proyecto['estado'] {
+  const VALID: Proyecto['estado'][] = ['Negociacion', 'Confirmado', 'Armado', 'Finalizado', 'Cancelado']
   if (!s) return 'Negociacion'
   const str = String(s)
   // Exact match
-  if (VALID.includes(str as Evento['estado'])) return str as Evento['estado']
+  if (VALID.includes(str as Proyecto['estado'])) return str as Proyecto['estado']
   // Case-insensitive + accent-insensitive
   const lower = str.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
-  const MAP: Record<string, Evento['estado']> = {
+  const MAP: Record<string, Proyecto['estado']> = {
     negociacion: 'Negociacion',
     confirmado: 'Confirmado',
     armado: 'Armado',
@@ -68,37 +69,61 @@ function normalizeEstadoEvento(s: unknown): Evento['estado'] {
 
 // ─── Field mappers ────────────────────────────────────────────────────────────
 
+function normalizeRol(rol: unknown): Usuario['rol'] {
+  if (rol === 'contable') return 'administrativo' // nombre legado en Firestore
+  if (rol === 'admin' || rol === 'administrativo' || rol === 'user') return rol
+  return 'user'
+}
+
 export function userFromFirestore(id: string, data: Record<string, unknown>): Usuario {
   return {
     id,
     username: (data.username as string) || (data.email as string) || '',
     displayName: (data.displayName as string) || (data.username as string) || '',
-    rol: ((data.role || data.rol) as Usuario['rol']) || 'user',
+    rol: normalizeRol(data.role || data.rol),
     createdAt: tsToIso(data.createdAt) || new Date().toISOString(),
+  }
+}
+
+function tareasFromFirestore(tareas: unknown): Tarea[] {
+  return (Array.isArray(tareas) ? tareas : []).map((t: Record<string, unknown>) => ({
+    id: t.id as string,
+    titulo: t.titulo as string,
+    responsableId: t.responsableId as string | undefined,
+    completada: Boolean(t.completada),
+    createdAt: tsToIso(t.createdAt) || new Date().toISOString(),
+  }))
+}
+
+function proyectoFromFirestore(id: string, data: Record<string, unknown>): Proyecto {
+  return {
+    id,
+    clienteId: (data.clienteId as string) || (data.cliente as string) || '',
+    estado: normalizeEstadoEvento(data.estado),
+    responsableId: (data.responsableId as string) || undefined,
+    fabricacion: (data.fabricacion as string) || '',
+    importe: Number(data.importe ?? 0),
+    notas: (data.notes as string) || (data.notas as string) || '',
+    tareas: tareasFromFirestore(data.tareas),
+    createdAt: tsToIso(data.createdAt) || new Date().toISOString(),
+    updatedAt: tsToIso(data.updatedAt) || new Date().toISOString(),
   }
 }
 
 function eventoFromFirestore(id: string, data: Record<string, unknown>): Evento {
   const armado = (data.armado as Record<string, unknown>) || {}
   const fechaEvento = (data.fechaEvento as Record<string, unknown>) || {}
-  const tareas = Array.isArray(data.tareas) ? data.tareas : []
+  const proyectosRaw = data.proyectos
 
-  return {
+  const proyectos: Proyecto[] = Array.isArray(proyectosRaw) && proyectosRaw.length > 0
+    ? proyectosRaw.map((p: Record<string, unknown>) => proyectoFromFirestore((p.id as string) || genId(), p))
+    : [proyectoFromFirestore(`${id}-legacy`, data)]
+
+  return applyAutoFinalizado({
     id,
     titulo: (data.titulo as string) || '',
-    clienteId: (data.clienteId as string) || (data.cliente as string) || '',
     lugar: (data.lugar as string) || '',
-    fabricacion: (data.fabricacion as string) || '',
-    estado: normalizeEstadoEvento(data.estado),
-    responsableId: (data.responsableId as string) || undefined,
-    tareas: tareas.map((t: Record<string, unknown>) => ({
-      id: t.id as string,
-      titulo: t.titulo as string,
-      responsableId: t.responsableId as string | undefined,
-      completada: Boolean(t.completada),
-      createdAt: tsToIso(t.createdAt) || new Date().toISOString(),
-    })),
-    notas: (data.notes as string) || (data.notas as string) || '',
+    proyectos,
     armadoInicio: tsToIso(armado.start) || (data.armadoInicio as string) || undefined,
     armadoFin: tsToIso(armado.end) || (data.armadoFin as string) || undefined,
     eventoInicio: tsToIso(fechaEvento.start) || (data.eventoInicio as string) || undefined,
@@ -109,7 +134,7 @@ function eventoFromFirestore(id: string, data: Record<string, unknown>): Evento 
     createdAt: tsToIso(data.createdAt) || new Date().toISOString(),
     updatedAt: tsToIso(data.updatedAt) || new Date().toISOString(),
     createdBy: (data.createdBy as string) || '',
-  }
+  })
 }
 
 function eventoToFirestore(e: Evento): Record<string, unknown> {
@@ -123,9 +148,7 @@ function eventoToFirestore(e: Evento): Record<string, unknown> {
     eventoInicio: e.eventoInicio || null,
     eventoFin: e.eventoFin || null,
     desarme: e.desarme || null,
-    responsableId: e.responsableId || null,
     carpetaServidor: e.carpetaServidor || null,
-    notas: e.notas,
     updatedAt: new Date().toISOString(),
   }
   // Also write nested format for v1 compat
@@ -148,9 +171,9 @@ function trabajoFromFirestore(id: string, data: Record<string, unknown>): Trabaj
     clienteAportaMaterial: Boolean(data.materialAportadoPorCliente ?? data.clienteAportaMaterial),
     fechaEntrega: tsToIso(data.fechaEntrega) || undefined,
     precioVenta: Number(data.precio ?? data.precioVenta ?? 0),
-    montoCobrado: Number(data.montoCobrado ?? 0),
     medioPago: (data.medioPago as TrabajoExterno['medioPago']) || 'Efectivo',
-    estado: (data.estado as TrabajoExterno['estado']) || 'Pendiente',
+    estado: (data.estado as TrabajoExterno['estado']) === 'Cobrado' ? 'Cobrado' : 'Pendiente',
+    responsableId: (data.responsableId as string) || undefined,
     notas: (data.notas as string) || undefined,
     createdAt: tsToIso(data.createdAt) || new Date().toISOString(),
     updatedAt: tsToIso(data.updatedAt) || new Date().toISOString(),
@@ -222,6 +245,33 @@ export async function saveTrabajo(j: TrabajoExterno): Promise<void> {
 
 export async function deleteTrabajoDoc(id: string): Promise<void> {
   await deleteDoc(doc(db, 'external_jobs', id))
+}
+
+// ─── Administración ─────────────────────────────────────────────────────────────
+
+function registroAdminFromFirestore(id: string, data: Record<string, unknown>): RegistroAdmin {
+  // formasPago viejo era un único valor (formaPago); si existe se envuelve en array
+  const formasPago = Array.isArray(data.formasPago)
+    ? data.formasPago as RegistroAdmin['formasPago']
+    : data.formaPago ? [data.formaPago as MedioPago] : []
+  return {
+    id,
+    proyectoId: (data.proyectoId as string) || '',
+    concepto: (data.concepto as string) || '',
+    formasPago,
+    pagado: Boolean(data.pagado),
+    facturado: Boolean(data.facturado),
+    updatedAt: tsToIso(data.updatedAt) || new Date().toISOString(),
+  }
+}
+
+export async function fetchRegistrosAdmin(): Promise<RegistroAdmin[]> {
+  const snap = await getDocs(collection(db, 'registros_admin'))
+  return snap.docs.map(d => registroAdminFromFirestore(d.id, d.data() as Record<string, unknown>))
+}
+
+export async function saveRegistroAdmin(r: RegistroAdmin): Promise<void> {
+  await setDoc(doc(db, 'registros_admin', r.id), stripUndefined({ ...r, updatedAt: new Date().toISOString() }), { merge: true })
 }
 
 // ─── Usuarios ─────────────────────────────────────────────────────────────────

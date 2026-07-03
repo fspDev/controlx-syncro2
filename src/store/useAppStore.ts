@@ -13,6 +13,7 @@ import {
   fetchEventos, saveEvento, deleteEventoDoc,
   subscribeEventos, subscribeClientes,
   fetchTrabajos, saveTrabajo, deleteTrabajoDoc,
+  fetchRegistrosAdmin, saveRegistroAdmin,
   fetchUsuarios, saveUsuario, deleteUsuarioDoc,
   fetchClientes, saveCliente, deleteClienteDoc,
   fetchTareasPlantilla, saveTareasPlantilla,
@@ -21,7 +22,7 @@ import {
   getUsuarioByUid,
   userFromFirestore,
 } from '@/lib/db'
-import type { Cliente, Evento, Usuario, TrabajoExterno, Tarea, PlanillaGrafica, TipoPieza, Pieza, TareaUsuario, PlanillaInfoOverride } from '@/types'
+import type { Cliente, Evento, Proyecto, Usuario, TrabajoExterno, Tarea, PlanillaGrafica, TipoPieza, Pieza, TareaUsuario, PlanillaInfoOverride, RegistroAdmin } from '@/types'
 import { TIPO_PREFIX } from '@/types'
 import { genId } from '@/lib/utils'
 
@@ -30,6 +31,8 @@ export interface TareaPlantilla {
   titulo: string
   orden: number
 }
+
+type ProyectoInput = Omit<Proyecto, 'id' | 'tareas' | 'createdAt' | 'updatedAt'>
 
 interface AppState {
   // Auth
@@ -55,12 +58,15 @@ interface AppState {
 
   // Eventos
   eventos: Evento[]
-  addEvento: (data: Omit<Evento, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'tareas'>) => string
-  updateEvento: (id: string, data: Partial<Evento>) => void
+  addEvento: (data: Omit<Evento, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'proyectos'> & { proyectos: ProyectoInput[] }) => string
+  updateEvento: (id: string, data: Partial<Omit<Evento, 'proyectos'>>) => void
   deleteEvento: (id: string) => void
-  addTarea: (eventoId: string, tarea: Omit<Tarea, 'id' | 'createdAt'>) => void
-  updateTarea: (eventoId: string, tareaId: string, data: Partial<Tarea>) => void
-  deleteTarea: (eventoId: string, tareaId: string) => void
+  addProyecto: (eventoId: string, data: ProyectoInput) => void
+  updateProyecto: (eventoId: string, proyectoId: string, data: Partial<Proyecto>) => void
+  deleteProyecto: (eventoId: string, proyectoId: string) => void
+  addTarea: (eventoId: string, proyectoId: string, tarea: Omit<Tarea, 'id' | 'createdAt'>) => void
+  updateTarea: (eventoId: string, proyectoId: string, tareaId: string, data: Partial<Tarea>) => void
+  deleteTarea: (eventoId: string, proyectoId: string, tareaId: string) => void
 
   // Agente y Carpeta Base
   agenteUrl: string
@@ -85,6 +91,11 @@ interface AppState {
   addTrabajo: (data: Omit<TrabajoExterno, 'id' | 'createdAt' | 'updatedAt'>) => string
   updateTrabajo: (id: string, data: Partial<TrabajoExterno>) => void
   deleteTrabajo: (id: string) => void
+
+  // Administración
+  registrosAdmin: RegistroAdmin[]
+  getOrCreateRegistroAdmin: (proyectoId: string) => string
+  updateRegistroAdmin: (id: string, data: Partial<Omit<RegistroAdmin, 'id' | 'proyectoId'>>) => void
 
   // Planilla Gráfica
   planillas: PlanillaGrafica[]
@@ -200,17 +211,18 @@ export const useAppStore = create<AppState>()(
       loadAllData: async () => {
         set({ dataLoading: true })
         const userId = get().currentUser?.id || ''
-        const [eventosR, clientesR, trabajosR, usuariosR, tareasR, tareasUsuarioR, carpetaBaseR] = await Promise.allSettled([
+        const [eventosR, clientesR, trabajosR, registrosAdminR, usuariosR, tareasR, tareasUsuarioR, carpetaBaseR] = await Promise.allSettled([
           fetchEventos(),
           fetchClientes(),
           fetchTrabajos(),
+          fetchRegistrosAdmin(),
           fetchUsuarios(),
           fetchTareasPlantilla(),
           userId ? fetchTareasUsuario(userId) : Promise.resolve([]),
           fetchCarpetaBase(),
         ])
-        const names = ['eventos', 'clientes', 'trabajos', 'usuarios', 'tareasPlantilla', 'tareasUsuario', 'carpetaBase']
-        ;[eventosR, clientesR, trabajosR, usuariosR, tareasR, tareasUsuarioR, carpetaBaseR].forEach((r, i) => {
+        const names = ['eventos', 'clientes', 'trabajos', 'registrosAdmin', 'usuarios', 'tareasPlantilla', 'tareasUsuario', 'carpetaBase']
+        ;[eventosR, clientesR, trabajosR, registrosAdminR, usuariosR, tareasR, tareasUsuarioR, carpetaBaseR].forEach((r, i) => {
           if (r.status === 'rejected') console.error(`[data] ${names[i]} failed:`, r.reason?.code || r.reason)
           else console.log(`[data] ${names[i]} loaded: ${(r.value as unknown[]).length ?? '?'} items`)
         })
@@ -232,6 +244,7 @@ export const useAppStore = create<AppState>()(
           eventos:         eventosR.status        === 'fulfilled' ? eventosR.value        : [],
           clientes:        clientesR.status       === 'fulfilled' ? clientesR.value       : [],
           trabajos:        trabajosR.status       === 'fulfilled' ? trabajosR.value       : [],
+          registrosAdmin:  registrosAdminR.status  === 'fulfilled' ? registrosAdminR.value : [],
           usuarios:        usuariosR.status       === 'fulfilled' ? usuariosR.value       : [],
           tareasPlantilla: tareasR.status         === 'fulfilled' ? tareasR.value         : get().tareasPlantilla,
           tareasUsuario:   mergedTareas,
@@ -287,13 +300,20 @@ export const useAppStore = create<AppState>()(
         const now = new Date().toISOString()
         const user = get().currentUser
         const plantilla = get().tareasPlantilla
-        const tareas: Tarea[] = plantilla.sort((a, b) => a.orden - b.orden).map(tp => ({
+        const tareasDesdeplantilla = (): Tarea[] => plantilla.sort((a, b) => a.orden - b.orden).map(tp => ({
           id: genId(),
           titulo: tp.titulo,
           completada: false,
           createdAt: now,
         }))
-        const e: Evento = { ...data, id, tareas, createdAt: now, updatedAt: now, createdBy: user?.id || '' }
+        const proyectos: Proyecto[] = data.proyectos.map(p => ({
+          ...p,
+          id: genId(),
+          tareas: tareasDesdeplantilla(),
+          createdAt: now,
+          updatedAt: now,
+        }))
+        const e: Evento = { ...data, proyectos, id, createdAt: now, updatedAt: now, createdBy: user?.id || '' }
         set(s => ({ eventos: [...s.eventos, e] }))
         saveEvento(e).catch(console.error)
         return id
@@ -309,30 +329,88 @@ export const useAppStore = create<AppState>()(
         set(s => ({ eventos: s.eventos.filter(e => e.id !== id) }))
         deleteEventoDoc(id).catch(console.error)
       },
-      addTarea: (eventoId, tarea) => {
+      addProyecto: (eventoId, data) => {
+        const now = new Date().toISOString()
+        const plantilla = get().tareasPlantilla
+        const tareas: Tarea[] = plantilla.sort((a, b) => a.orden - b.orden).map(tp => ({
+          id: genId(),
+          titulo: tp.titulo,
+          completada: false,
+          createdAt: now,
+        }))
+        const proyecto: Proyecto = { ...data, id: genId(), tareas, createdAt: now, updatedAt: now }
+        set(s => ({
+          eventos: s.eventos.map(e => e.id === eventoId
+            ? { ...e, proyectos: [...e.proyectos, proyecto], updatedAt: now }
+            : e)
+        }))
+        const updated = get().eventos.find(e => e.id === eventoId)
+        if (updated) saveEvento(updated).catch(console.error)
+      },
+      updateProyecto: (eventoId, proyectoId, data) => {
+        const now = new Date().toISOString()
+        set(s => ({
+          eventos: s.eventos.map(e => e.id === eventoId
+            ? { ...e, proyectos: e.proyectos.map(p => p.id === proyectoId ? { ...p, ...data, updatedAt: now } : p), updatedAt: now }
+            : e)
+        }))
+        const updated = get().eventos.find(e => e.id === eventoId)
+        if (updated) saveEvento(updated).catch(console.error)
+      },
+      deleteProyecto: (eventoId, proyectoId) => {
+        const now = new Date().toISOString()
+        set(s => ({
+          eventos: s.eventos.map(e => e.id === eventoId
+            ? { ...e, proyectos: e.proyectos.filter(p => p.id !== proyectoId), updatedAt: now }
+            : e)
+        }))
+        const updated = get().eventos.find(e => e.id === eventoId)
+        if (updated) saveEvento(updated).catch(console.error)
+      },
+      addTarea: (eventoId, proyectoId, tarea) => {
         const id = genId()
         const now = new Date().toISOString()
         set(s => ({
           eventos: s.eventos.map(e => e.id === eventoId
-            ? { ...e, tareas: [...e.tareas, { ...tarea, id, createdAt: now }], updatedAt: now }
+            ? {
+                ...e,
+                proyectos: e.proyectos.map(p => p.id === proyectoId
+                  ? { ...p, tareas: [...p.tareas, { ...tarea, id, createdAt: now }], updatedAt: now }
+                  : p),
+                updatedAt: now,
+              }
             : e)
         }))
         const updated = get().eventos.find(e => e.id === eventoId)
         if (updated) saveEvento(updated).catch(console.error)
       },
-      updateTarea: (eventoId, tareaId, data) => {
+      updateTarea: (eventoId, proyectoId, tareaId, data) => {
+        const now = new Date().toISOString()
         set(s => ({
           eventos: s.eventos.map(e => e.id === eventoId
-            ? { ...e, tareas: e.tareas.map(t => t.id === tareaId ? { ...t, ...data } : t), updatedAt: new Date().toISOString() }
+            ? {
+                ...e,
+                proyectos: e.proyectos.map(p => p.id === proyectoId
+                  ? { ...p, tareas: p.tareas.map(t => t.id === tareaId ? { ...t, ...data } : t), updatedAt: now }
+                  : p),
+                updatedAt: now,
+              }
             : e)
         }))
         const updated = get().eventos.find(e => e.id === eventoId)
         if (updated) saveEvento(updated).catch(console.error)
       },
-      deleteTarea: (eventoId, tareaId) => {
+      deleteTarea: (eventoId, proyectoId, tareaId) => {
+        const now = new Date().toISOString()
         set(s => ({
           eventos: s.eventos.map(e => e.id === eventoId
-            ? { ...e, tareas: e.tareas.filter(t => t.id !== tareaId), updatedAt: new Date().toISOString() }
+            ? {
+                ...e,
+                proyectos: e.proyectos.map(p => p.id === proyectoId
+                  ? { ...p, tareas: p.tareas.filter(t => t.id !== tareaId), updatedAt: now }
+                  : p),
+                updatedAt: now,
+              }
             : e)
         }))
         const updated = get().eventos.find(e => e.id === eventoId)
@@ -414,6 +492,24 @@ export const useAppStore = create<AppState>()(
       deleteTrabajo: (id) => {
         set(s => ({ trabajos: s.trabajos.filter(t => t.id !== id) }))
         deleteTrabajoDoc(id).catch(console.error)
+      },
+
+      registrosAdmin: [],
+      getOrCreateRegistroAdmin: (proyectoId) => {
+        const existing = get().registrosAdmin.find(r => r.proyectoId === proyectoId)
+        if (existing) return existing.id
+        const id = genId()
+        const r: RegistroAdmin = { id, proyectoId, concepto: '', formasPago: [], pagado: false, facturado: false, updatedAt: new Date().toISOString() }
+        set(s => ({ registrosAdmin: [...s.registrosAdmin, r] }))
+        saveRegistroAdmin(r).catch(console.error)
+        return id
+      },
+      updateRegistroAdmin: (id, data) => {
+        set(s => ({
+          registrosAdmin: s.registrosAdmin.map(r => r.id === id ? { ...r, ...data, updatedAt: new Date().toISOString() } : r)
+        }))
+        const updated = get().registrosAdmin.find(r => r.id === id)
+        if (updated) saveRegistroAdmin(updated).catch(console.error)
       },
 
       planillas: [],

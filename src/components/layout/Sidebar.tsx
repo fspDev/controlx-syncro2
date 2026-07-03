@@ -3,7 +3,7 @@ import { useAppStore } from '@/store/useAppStore'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, FolderKanban, Calendar, Users, Briefcase,
-  ChevronLeft, ChevronRight, LogOut, Shield, Sun, Moon, Monitor, CheckSquare
+  ChevronLeft, ChevronRight, LogOut, Shield, Sun, Moon, Monitor, CheckSquare, Wallet
 } from 'lucide-react'
 
 const NAV_ITEMS = [
@@ -45,6 +45,24 @@ export function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 py-3 px-2 flex flex-col gap-0.5 overflow-y-auto">
+        {(currentUser?.rol === 'admin' || currentUser?.rol === 'administrativo') && (
+          <NavLink
+            to="/administracion"
+            onClick={() => { if (window.innerWidth < 1024) setSidebarOpen(false) }}
+            className={({ isActive }) => cn(
+              'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-150',
+              isActive
+                ? 'bg-brand-500/15 text-brand-400 font-medium'
+                : 'text-gray-500 hover:text-gray-200 hover:bg-[var(--surface-2)]',
+              !sidebarOpen && 'lg:justify-center lg:px-0'
+            )}
+            title={!sidebarOpen ? 'Administración' : undefined}
+          >
+            <Wallet size={17} className="shrink-0" />
+            {sidebarOpen && <span>Administración</span>}
+          </NavLink>
+        )}
+
         {NAV_ITEMS.map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}

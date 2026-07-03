@@ -15,27 +15,29 @@ type FormData = Omit<TrabajoExterno, 'id' | 'createdAt' | 'updatedAt'>
 const EMPTY: FormData = {
   titulo: '', descripcion: '', clienteNombre: '', contacto: '',
   clienteAportaMaterial: false, fechaEntrega: '', precioVenta: 0,
-  montoCobrado: 0, medioPago: 'Efectivo', estado: 'Pendiente', notas: ''
+  medioPago: 'Efectivo', estado: 'Pendiente', responsableId: '', notas: ''
 }
 
 export function TrabajosPage() {
-  const { trabajos, addTrabajo, updateTrabajo, deleteTrabajo } = useAppStore()
+  const { trabajos, usuarios, addTrabajo, updateTrabajo, deleteTrabajo } = useAppStore()
   const [showForm, setShowForm] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
-  const [filterEstado, setFilterEstado] = useState<TrabajoEstado | ''>('')
+  const [filterEstado, setFilterEstado] = useState<TrabajoEstado | 'Todos'>('Pendiente')
   const [form, setForm] = useState<FormData>(EMPTY)
 
-  const filtered = trabajos.filter(t => !filterEstado || t.estado === filterEstado)
+  const filtered = trabajos.filter(t => filterEstado === 'Todos' || t.estado === filterEstado)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
   const totalFacturado = trabajos.reduce((s, t) => s + t.precioVenta, 0)
-  const totalCobrado = trabajos.reduce((s, t) => s + t.montoCobrado, 0)
+  const totalCobrado = trabajos.filter(t => t.estado === 'Cobrado').reduce((s, t) => s + t.precioVenta, 0)
   const porCobrar = totalFacturado - totalCobrado
+
+  const toggleEstado = (t: TrabajoExterno) => updateTrabajo(t.id, { estado: t.estado === 'Pendiente' ? 'Cobrado' : 'Pendiente' })
 
   const openNew = () => { setForm(EMPTY); setEditId(null); setShowForm(true) }
   const openEdit = (t: TrabajoExterno) => {
-    setForm({ titulo: t.titulo, descripcion: t.descripcion||'', clienteNombre: t.clienteNombre, contacto: t.contacto||'', clienteAportaMaterial: t.clienteAportaMaterial, fechaEntrega: t.fechaEntrega||'', precioVenta: t.precioVenta, montoCobrado: t.montoCobrado, medioPago: t.medioPago, estado: t.estado, notas: t.notas||'' })
+    setForm({ titulo: t.titulo, descripcion: t.descripcion||'', clienteNombre: t.clienteNombre, contacto: t.contacto||'', clienteAportaMaterial: t.clienteAportaMaterial, fechaEntrega: t.fechaEntrega||'', precioVenta: t.precioVenta, medioPago: t.medioPago, estado: t.estado, responsableId: t.responsableId||'', notas: t.notas||'' })
     setEditId(t.id); setShowForm(true)
   }
 
@@ -49,9 +51,13 @@ export function TrabajosPage() {
 
   const set = (k: keyof FormData, v: string | number | boolean) => setForm(prev => ({ ...prev, [k]: v }))
 
-  const estadoOpts = [{ value: '', label: 'Todos' }, ...ESTADOS_TRABAJO.map(e => ({ value: e, label: e }))]
   const trabajoEstadoOpts = ESTADOS_TRABAJO.map(e => ({ value: e, label: e }))
   const medioPagoOpts = MEDIOS_PAGO.map(m => ({ value: m, label: m }))
+  const responsableOpts = [
+    { value: '', label: '— Sin asignar —' },
+    ...usuarios.map(u => ({ value: u.id, label: u.displayName || u.username }))
+  ]
+  const responsableNombre = (id?: string) => usuarios.find(u => u.id === id)?.displayName || usuarios.find(u => u.id === id)?.username
 
   return (
     <div className="space-y-5">
@@ -76,13 +82,19 @@ export function TrabajosPage() {
 
       {/* Filtros */}
       <div className="flex items-center gap-3">
-        <select
-          value={filterEstado}
-          onChange={e => setFilterEstado(e.target.value as TrabajoEstado | '')}
-          className="bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-1.5 text-sm text-gray-300 focus:outline-none cursor-pointer"
-        >
-          {estadoOpts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
+        <div className="flex bg-[var(--surface)] border border-[var(--border)] rounded-lg p-0.5">
+          {(['Todos', ...ESTADOS_TRABAJO] as const).map(e => (
+            <button
+              key={e}
+              onClick={() => setFilterEstado(e)}
+              className={`px-3 py-1 rounded-md text-sm cursor-pointer transition-all ${
+                filterEstado === e ? 'bg-[var(--surface-2)] text-gray-100' : 'text-gray-500 hover:text-gray-300'
+              }`}
+            >
+              {e}
+            </button>
+          ))}
+        </div>
         <span className="text-xs text-gray-600 ml-auto">{filtered.length} trabajo{filtered.length !== 1 ? 's' : ''}</span>
       </div>
 
@@ -102,12 +114,15 @@ export function TrabajosPage() {
                   <p className="text-sm font-medium text-gray-200 truncate">{t.titulo}</p>
                   <p className="text-xs text-gray-500">{t.clienteNombre}</p>
                 </div>
-                <Badge className={`${cols.bg} ${cols.text} shrink-0`}>{t.estado}</Badge>
+                <button onClick={() => toggleEstado(t)} className="shrink-0 cursor-pointer">
+                  <Badge className={`${cols.bg} ${cols.text}`}>{t.estado}</Badge>
+                </button>
               </div>
               <div className="flex items-center justify-between mt-2">
                 <div className="flex items-center gap-2 text-xs text-gray-500">
                   <span className="font-medium text-gray-300">{formatCurrency(t.precioVenta)}</span>
                   {t.fechaEntrega && <><span>·</span><span>{formatDate(t.fechaEntrega)}</span></>}
+                  {responsableNombre(t.responsableId) && <><span>·</span><span>{responsableNombre(t.responsableId)}</span></>}
                 </div>
                 <div className="flex gap-1">
                   <button onClick={() => openEdit(t)} className="p-1.5 rounded text-gray-600 hover:text-gray-300 hover:bg-[var(--surface-2)] cursor-pointer transition-all"><Edit2 size={13} /></button>
@@ -129,7 +144,7 @@ export function TrabajosPage() {
               <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
               <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Fecha entrega</th>
               <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Precio</th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Cobrado</th>
+              <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Responsable</th>
               <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
               <th className="px-4 py-3" />
             </tr>
@@ -153,13 +168,15 @@ export function TrabajosPage() {
                     {t.contacto && <p className="text-xs text-gray-600">{t.contacto}</p>}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-400 hidden md:table-cell">{formatDate(t.fechaEntrega)}</td>
-                  <td className="px-4 py-3 text-sm font-medium text-gray-300">{formatCurrency(t.precioVenta)}</td>
-                  <td className="px-4 py-3 text-sm text-gray-400 hidden lg:table-cell">
-                    {formatCurrency(t.montoCobrado)}
+                  <td className="px-4 py-3 text-sm font-medium text-gray-300">
+                    {formatCurrency(t.precioVenta)}
                     <span className="text-xs text-gray-600 ml-1">({t.medioPago})</span>
                   </td>
+                  <td className="px-4 py-3 text-sm text-gray-400 hidden md:table-cell">{responsableNombre(t.responsableId) || '—'}</td>
                   <td className="px-4 py-3">
-                    <Badge className={`${cols.bg} ${cols.text}`}>{t.estado}</Badge>
+                    <button onClick={() => toggleEstado(t)} className="cursor-pointer">
+                      <Badge className={`${cols.bg} ${cols.text}`}>{t.estado}</Badge>
+                    </button>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-1 justify-end">
@@ -188,17 +205,17 @@ export function TrabajosPage() {
             <Input label="Cliente" value={form.clienteNombre} onChange={e => set('clienteNombre', e.target.value)} placeholder="Nombre del cliente" />
             <Input label="Contacto" value={form.contacto||''} onChange={e => set('contacto', e.target.value)} placeholder="Nombre del contacto" />
           </div>
-          <Input label="Fecha de Entrega" type="date" value={form.fechaEntrega||''} onChange={e => set('fechaEntrega', e.target.value)} />
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="Fecha de Entrega" type="date" value={form.fechaEntrega||''} onChange={e => set('fechaEntrega', e.target.value)} />
+            <Select label="Responsable" value={form.responsableId||''} onChange={e => set('responsableId', e.target.value)} options={responsableOpts} />
+          </div>
           <div className="bg-[var(--bg)] border border-[var(--border)] rounded-xl p-4 space-y-3">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Económico</p>
             <div className="grid grid-cols-2 gap-3">
-              <Input label="Precio Venta ($)" type="number" value={form.precioVenta} onChange={e => set('precioVenta', parseFloat(e.target.value)||0)} min={0} />
-              <Input label="Monto Cobrado ($)" type="number" value={form.montoCobrado} onChange={e => set('montoCobrado', parseFloat(e.target.value)||0)} min={0} />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
+              <Input label="Precio ($)" type="number" value={form.precioVenta} onChange={e => set('precioVenta', parseFloat(e.target.value)||0)} min={0} />
               <Select label="Medio de Pago" value={form.medioPago} onChange={e => set('medioPago', e.target.value as MedioPago)} options={medioPagoOpts} />
-              <Select label="Estado" value={form.estado} onChange={e => set('estado', e.target.value as TrabajoEstado)} options={trabajoEstadoOpts} />
             </div>
+            <Select label="Estado" value={form.estado} onChange={e => set('estado', e.target.value as TrabajoEstado)} options={trabajoEstadoOpts} />
           </div>
           <Textarea label="Notas" value={form.notas||''} onChange={e => set('notas', e.target.value)} placeholder="Notas adicionales..." rows={2} />
           <div className="flex gap-2 justify-end pt-2">

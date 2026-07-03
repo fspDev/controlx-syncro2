@@ -10,13 +10,13 @@ import { Plus, Edit2, Trash2, Shield, ClipboardList, GripVertical, Check, X, Fol
 
 const ROL_OPTS = [
   { value: 'admin', label: 'Administrador' },
-  { value: 'contable', label: 'Contable' },
+  { value: 'administrativo', label: 'Administrativo' },
   { value: 'user', label: 'Usuario' },
 ]
 
 const ROL_COLORS: Record<UserRol, string> = {
   admin: 'bg-brand-500/15 text-brand-400',
-  contable: 'bg-emerald-500/15 text-emerald-400',
+  administrativo: 'bg-emerald-500/15 text-emerald-400',
   user: 'bg-blue-500/15 text-blue-400',
 }
 
@@ -277,7 +277,7 @@ export function AdminPage() {
         <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">Roles</h3>
         <div className="space-y-3">
           <div className="flex gap-3"><span className={`text-xs px-2 py-1 rounded-full font-medium shrink-0 ${ROL_COLORS.admin}`}>Admin</span><p className="text-xs text-gray-500">Acceso completo + gestión de usuarios</p></div>
-          <div className="flex gap-3"><span className={`text-xs px-2 py-1 rounded-full font-medium shrink-0 ${ROL_COLORS.contable}`}>Contable</span><p className="text-xs text-gray-500">Acceso completo + módulo financiero avanzado (Etapa 2)</p></div>
+          <div className="flex gap-3"><span className={`text-xs px-2 py-1 rounded-full font-medium shrink-0 ${ROL_COLORS.administrativo}`}>Administrativo</span><p className="text-xs text-gray-500">Acceso completo + pestaña de Administración (planilla financiera)</p></div>
           <div className="flex gap-3"><span className={`text-xs px-2 py-1 rounded-full font-medium shrink-0 ${ROL_COLORS.user}`}>Usuario</span><p className="text-xs text-gray-500">Acceso a proyectos, calendario, clientes y trabajos</p></div>
         </div>
       </div>

@@ -18,8 +18,10 @@ export function ClienteDetailPage() {
     </div>
   )
 
-  const eventosCliente = eventos.filter(e => e.clienteId === cliente.id)
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  const eventosCliente = eventos
+    .filter(e => e.proyectos.some(p => p.clienteId === cliente.id))
+    .map(e => ({ evento: e, proyecto: e.proyectos.find(p => p.clienteId === cliente.id)! }))
+    .sort((a, b) => new Date(b.evento.createdAt).getTime() - new Date(a.evento.createdAt).getTime())
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -89,7 +91,7 @@ export function ClienteDetailPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {eventosCliente.map(e => (
+              {eventosCliente.map(({ evento: e, proyecto: p }) => (
                 <div
                   key={e.id}
                   onClick={() => navigate(`/proyectos/${e.id}`)}
@@ -97,7 +99,7 @@ export function ClienteDetailPage() {
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <EstadoBadge estado={e.estado} />
+                      <EstadoBadge estado={p.estado} />
                     </div>
                     <p className="font-medium text-gray-200 truncate">{e.titulo}</p>
                     <p className="text-xs text-gray-500">{e.lugar || '—'} · {formatDate(e.eventoInicio)}</p>

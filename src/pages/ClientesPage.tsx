@@ -49,7 +49,7 @@ export function ClientesPage() {
 
   const set = (k: keyof ClienteForm, v: string) => setForm(prev => ({ ...prev, [k]: v }))
   const toDelete = clientes.find(c => c.id === deleteId)
-  const eventosDelCliente = deleteId ? eventos.filter(e => e.clienteId === deleteId).length : 0
+  const eventosDelCliente = deleteId ? eventos.filter(e => e.proyectos.some(p => p.clienteId === deleteId)).length : 0
 
   const Avatar = ({ nombre }: { nombre: string }) => (
     <div className="w-9 h-9 rounded-xl bg-brand-500/15 border border-brand-500/20 flex items-center justify-center shrink-0">
@@ -117,7 +117,7 @@ export function ClientesPage() {
       {filtered.length > 0 && view === 'grid' && (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtered.map(c => {
-            const nEventos = eventos.filter(e => e.clienteId === c.id).length
+            const nEventos = eventos.filter(e => e.proyectos.some(p => p.clienteId === c.id)).length
             return (
               <div
                 key={c.id}
@@ -170,7 +170,7 @@ export function ClientesPage() {
               </thead>
               <tbody className="divide-y divide-[var(--border-s)]">
                 {filtered.map(c => {
-                  const nEventos = eventos.filter(e => e.clienteId === c.id).length
+                  const nEventos = eventos.filter(e => e.proyectos.some(p => p.clienteId === c.id)).length
                   return (
                     <tr
                       key={c.id}

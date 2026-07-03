@@ -24,7 +24,7 @@ export function MisTareasPage() {
   const [filtroEvento, setFiltroEvento] = useState('')
 
   const otrosUsuarios = usuarios.filter(u => u.id !== currentUser?.id)
-  const eventosActivos = eventos.filter(e => e.estado !== 'Finalizado' && e.estado !== 'Cancelado')
+  const eventosActivos = eventos.filter(e => e.proyectos.some(p => p.estado !== 'Finalizado' && p.estado !== 'Cancelado'))
 
   const tareasFiltradas = tareasUsuario
     .filter(t => {

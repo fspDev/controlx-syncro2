@@ -1,7 +1,7 @@
 export type EventoEstado = 'Negociacion' | 'Confirmado' | 'Armado' | 'Finalizado' | 'Cancelado'
-export type UserRol = 'admin' | 'contable' | 'user'
+export type UserRol = 'admin' | 'administrativo' | 'user'
 export type MedioPago = 'Efectivo' | 'Transferencia' | 'Cheque' | 'Tarjeta'
-export type TrabajoEstado = 'Pendiente' | 'En Proceso' | 'Entregado' | 'Cobrado'
+export type TrabajoEstado = 'Pendiente' | 'Cobrado'
 
 export interface Cliente {
   id: string
@@ -23,16 +23,24 @@ export interface Tarea {
   createdAt: string
 }
 
+export interface Proyecto {
+  id: string
+  clienteId: string
+  estado: EventoEstado
+  responsableId?: string
+  fabricacion: string
+  importe: number
+  notas: string
+  tareas: Tarea[]
+  createdAt: string
+  updatedAt: string
+}
+
 export interface Evento {
   id: string
   titulo: string
-  clienteId: string
   lugar: string
-  fabricacion: string
-  estado: EventoEstado
-  responsableId?: string
-  tareas: Tarea[]
-  notas: string
+  proyectos: Proyecto[]
   armadoInicio?: string
   armadoFin?: string
   eventoInicio?: string
@@ -149,10 +157,22 @@ export interface TrabajoExterno {
   clienteAportaMaterial: boolean
   fechaEntrega?: string
   precioVenta: number
-  montoCobrado: number
   medioPago: MedioPago
   estado: TrabajoEstado
+  responsableId?: string
   notas?: string
   createdAt: string
+  updatedAt: string
+}
+
+// ─── Administración ──────────────────────────────────────────────────────────
+
+export interface RegistroAdmin {
+  id: string
+  proyectoId: string
+  concepto: string
+  formasPago: MedioPago[]
+  pagado: boolean
+  facturado: boolean
   updatedAt: string
 }

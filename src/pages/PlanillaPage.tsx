@@ -6,6 +6,7 @@ import { pdf, PDFViewer } from '@react-pdf/renderer'
 import { PlanillaPDF } from '@/components/pdf/PlanillaPDF'
 import type { TipoPieza, Pieza, PlanillaRender } from '@/types'
 import { TIPO_LABEL, TIPO_PREFIX, TIPO_COLOR_HEX, SUBTIPOS } from '@/types'
+import { proyectoClientesLabel, proyectoResponsablesLabel } from '@/lib/utils'
 import { ArrowLeft, Plus, Trash2, Upload, ImagePlus, FileDown, Edit2, X, ChevronRight, Eye, RefreshCw, Clipboard } from 'lucide-react'
 
 // ─── Marker size config ───────────────────────────────────────────────────────
@@ -147,18 +148,18 @@ function PiezaFormModal({ piezas, onConfirm, onCancel }: {
               </div>
               <div>
                 <label className="text-xs text-gray-500 mb-1.5 block">Cantidad a fabricar</label>
-                <input type="number" min={1} value={cantidad} onChange={e => setCantidad(e.target.value)}
+                <input type="number" min={1} value={cantidad} onChange={e => setCantidad(e.target.value)} onFocus={e => e.target.select()}
                   className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-brand-500/50 focus:outline-none" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-gray-500 mb-1.5 block">Ancho (mm)</label>
-                  <input type="number" value={ancho} onChange={e => setAncho(e.target.value)} placeholder="ej: 2400"
+                  <input type="number" value={ancho} onChange={e => setAncho(e.target.value)} onFocus={e => e.target.select()} placeholder="ej: 2400"
                     className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-gray-200 placeholder:text-gray-600 focus:border-brand-500/50 focus:outline-none" />
                 </div>
                 <div>
                   <label className="text-xs text-gray-500 mb-1.5 block">Alto (mm)</label>
-                  <input type="number" value={alto} onChange={e => setAlto(e.target.value)} placeholder="ej: 800"
+                  <input type="number" value={alto} onChange={e => setAlto(e.target.value)} onFocus={e => e.target.select()} placeholder="ej: 800"
                     className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-gray-200 placeholder:text-gray-600 focus:border-brand-500/50 focus:outline-none" />
                 </div>
               </div>
@@ -214,18 +215,18 @@ function EditPiezaModal({ pieza, onSave, onClose }: {
           </div>
           <div>
             <label className="text-xs text-gray-500 mb-1.5 block">Cantidad a fabricar</label>
-            <input type="number" min={1} value={cantidad} onChange={e => setCantidad(e.target.value)}
+            <input type="number" min={1} value={cantidad} onChange={e => setCantidad(e.target.value)} onFocus={e => e.target.select()}
               className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-gray-500 mb-1.5 block">Ancho (mm)</label>
-              <input type="number" value={ancho} onChange={e => setAncho(e.target.value)}
+              <input type="number" value={ancho} onChange={e => setAncho(e.target.value)} onFocus={e => e.target.select()}
                 className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none" />
             </div>
             <div>
               <label className="text-xs text-gray-500 mb-1.5 block">Alto (mm)</label>
-              <input type="number" value={alto} onChange={e => setAlto(e.target.value)}
+              <input type="number" value={alto} onChange={e => setAlto(e.target.value)} onFocus={e => e.target.select()}
                 className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none" />
             </div>
           </div>
@@ -521,8 +522,8 @@ export function PlanillaPage() {
   } = useAppStore()
 
   const evento = eventos.find(e => e.id === eventoId)
-  const cliente = clientes.find(c => c.id === evento?.clienteId)
-  const responsable = usuarios.find(u => u.id === evento?.responsableId)
+  const clienteLabel = evento ? proyectoClientesLabel(evento, clientes) : ''
+  const responsableLabel = evento ? proyectoResponsablesLabel(evento, usuarios) : ''
 
   useEffect(() => {
     if (eventoId && !planillas.find(p => p.eventoId === eventoId)) {
@@ -554,9 +555,9 @@ export function PlanillaPage() {
   // Valores efectivos para el documento: override de la planilla si existe, sino los del proyecto
   const docInfo = {
     titulo: infoOverride?.titulo || evento?.titulo || '',
-    cliente: infoOverride?.cliente || cliente?.nombre || '',
+    cliente: infoOverride?.cliente || clienteLabel,
     lugar: infoOverride?.lugar || evento?.lugar || '',
-    responsable: infoOverride?.responsable || (responsable ? (responsable.displayName || responsable.username) : ''),
+    responsable: infoOverride?.responsable || responsableLabel,
   }
   const effectiveRenderId = activeRenderId || renders[0]?.id || null
   const activeRender = renders.find(r => r.id === effectiveRenderId)
@@ -612,7 +613,7 @@ export function PlanillaPage() {
     setExportando(true)
     try {
       const blob = await pdf(
-        <PlanillaPDF planilla={currentPlanilla} evento={evento} cliente={cliente} responsable={responsable} rendersPerPage={rendersPerPage} logoUrl={`${window.location.origin}${import.meta.env.BASE_URL}logo1.png`} />
+        <PlanillaPDF planilla={currentPlanilla} evento={evento} clienteLabel={clienteLabel} responsableLabel={responsableLabel} rendersPerPage={rendersPerPage} logoUrl={`${window.location.origin}${import.meta.env.BASE_URL}logo1.png`} />
       ).toBlob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -848,7 +849,7 @@ export function PlanillaPage() {
       {/* Info edit modal */}
       {showInfoEdit && currentPlanilla && (
         <InfoEditModal
-          defaults={{ titulo: evento.titulo, cliente: cliente?.nombre || '—', lugar: evento.lugar || '—', responsable: responsable ? (responsable.displayName || responsable.username) : '—' }}
+          defaults={{ titulo: evento.titulo, cliente: clienteLabel || '—', lugar: evento.lugar || '—', responsable: responsableLabel || '—' }}
           current={infoOverride || {}}
           onSave={data => updatePlanillaInfo(currentPlanilla.id, data)}
           onClose={() => setShowInfoEdit(false)}
@@ -883,7 +884,7 @@ export function PlanillaPage() {
             </div>
           </div>
           <PDFViewer style={{ flex: 1, border: 'none' }}>
-            <PlanillaPDF planilla={currentPlanilla} evento={evento} cliente={cliente} responsable={responsable} rendersPerPage={rendersPerPage} logoUrl={`${window.location.origin}${import.meta.env.BASE_URL}logo1.png`} />
+            <PlanillaPDF planilla={currentPlanilla} evento={evento} clienteLabel={clienteLabel} responsableLabel={responsableLabel} rendersPerPage={rendersPerPage} logoUrl={`${window.location.origin}${import.meta.env.BASE_URL}logo1.png`} />
           </PDFViewer>
         </div>
       )}

@@ -1,8 +1,8 @@
 import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '@/store/useAppStore'
 import { Card } from '@/components/ui/Card'
-import { Badge } from '@/components/ui/Badge'
-import { ESTADO_COLORS, estadoLabel, formatDate } from '@/lib/utils'
+import { EstadoSelector } from '@/components/eventos/EstadoSelector'
+import { ESTADO_COLORS, estadoLabel, formatDate, proyectoClientesLabel } from '@/lib/utils'
 import type { EventoEstado, TareaUsuarioPrioridad } from '@/types'
 import { FolderKanban, CheckCircle2, Clock, AlertCircle, Users, Flag } from 'lucide-react'
 
@@ -15,27 +15,31 @@ const PRIORIDAD_COLORS: Record<TareaUsuarioPrioridad, { text: string; label: str
 const ESTADO_ORDER: EventoEstado[] = ['Negociacion', 'Confirmado', 'Armado', 'Finalizado', 'Cancelado']
 
 export function DashboardPage() {
-  const { eventos, clientes, currentUser, tareasUsuario } = useAppStore()
+  const { eventos, clientes, currentUser, tareasUsuario, updateProyecto } = useAppStore()
   const navigate = useNavigate()
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
+  const proyectoActivo = (p: { estado: EventoEstado }) => p.estado !== 'Cancelado' && p.estado !== 'Finalizado'
+
   const proximos = eventos
-    .filter(e => e.eventoInicio && e.estado !== 'Cancelado' && e.estado !== 'Finalizado' && new Date(e.eventoInicio) >= today)
+    .filter(e => e.eventoInicio && e.proyectos.some(proyectoActivo) && new Date(e.eventoInicio) >= today)
     .sort((a, b) => new Date(a.eventoInicio!).getTime() - new Date(b.eventoInicio!).getTime())
     .slice(0, 5)
 
   const estadoCounts = ESTADO_ORDER.reduce((acc, estado) => {
-    acc[estado] = eventos.filter(e => e.estado === estado).length
+    acc[estado] = eventos.flatMap(e => e.proyectos).filter(p => p.estado === estado).length
     return acc
   }, {} as Record<EventoEstado, number>)
 
   // Tareas de proyecto asignadas al usuario actual
   const tareasDeProyecto = eventos.flatMap(e =>
-    e.tareas
-      .filter(t => !t.completada && t.responsableId === currentUser?.id)
-      .map(t => ({ ...t, eventoTitulo: e.titulo, eventoId: e.id, tipo: 'proyecto' as const }))
+    e.proyectos.flatMap(p =>
+      p.tareas
+        .filter(t => !t.completada && t.responsableId === currentUser?.id)
+        .map(t => ({ ...t, eventoTitulo: e.titulo, eventoId: e.id, tipo: 'proyecto' as const }))
+    )
   )
 
   // Tareas personales pendientes del usuario actual
@@ -53,7 +57,7 @@ export function DashboardPage() {
   const totalTareasPendientes = tareasDeProyecto.length + tareasPersonalesPend.length
 
   const proxArmados = eventos
-    .filter(e => e.armadoInicio && e.estado !== 'Cancelado' && e.estado !== 'Finalizado')
+    .filter(e => e.armadoInicio && e.proyectos.some(proyectoActivo))
     .filter(e => {
       const d = new Date(e.armadoInicio!)
       const diff = Math.ceil((d.getTime() - today.getTime()) / 86400000)
@@ -75,7 +79,7 @@ export function DashboardPage() {
             <div>
               <p className="text-xs text-gray-500 mb-1">Eventos activos</p>
               <p className="text-2xl font-bold text-gray-100">
-                {eventos.filter(e => e.estado !== 'Cancelado' && e.estado !== 'Finalizado').length}
+                {eventos.filter(e => e.proyectos.some(proyectoActivo)).length}
               </p>
             </div>
             <div className="p-2 bg-brand-500/15 rounded-lg"><FolderKanban size={18} className="text-brand-400" /></div>
@@ -116,11 +120,9 @@ export function DashboardPage() {
             </Card>
           ) : (
             proximos.map(e => {
-              const cliente = clientes.find(c => c.id === e.clienteId)
-              const cols = ESTADO_COLORS[e.estado]
-              const tareasPend = e.tareas.filter(t => !t.completada).length
+              const tareasPend = e.proyectos.reduce((s, p) => s + p.tareas.filter(t => !t.completada).length, 0)
               return (
-                <Card key={e.id} className="p-4 cursor-pointer hover:border-[var(--border-h)] transition-colors overflow-hidden" onClick={() => navigate(`/proyectos/${e.id}`)}>
+                <Card key={e.id} className="p-4 cursor-pointer hover:border-[var(--border-h)] transition-colors" onClick={() => navigate(`/proyectos/${e.id}`)}>
                   <div className="flex items-start gap-3">
                     {/* Render thumbnail */}
                     {e.renders && e.renders.length > 0 ? (
@@ -133,8 +135,10 @@ export function DashboardPage() {
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Badge className={`${cols.bg} ${cols.text}`}>{estadoLabel(e.estado)}</Badge>
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        {e.proyectos.map(p => (
+                          <EstadoSelector key={p.id} estado={p.estado} onChange={estado => updateProyecto(e.id, p.id, { estado })} />
+                        ))}
                         {tareasPend > 0 && (
                           <span className="text-xs text-amber-400 flex items-center gap-1">
                             <AlertCircle size={11} />{tareasPend} tarea{tareasPend > 1 ? 's' : ''}
@@ -142,7 +146,7 @@ export function DashboardPage() {
                         )}
                       </div>
                       <p className="font-medium text-gray-200 truncate">{e.titulo}</p>
-                      <p className="text-xs text-gray-500">{cliente?.nombre || '—'} · {e.lugar}</p>
+                      <p className="text-xs text-gray-500">{proyectoClientesLabel(e, clientes)} · {e.lugar}</p>
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-xs text-gray-500">Evento</p>

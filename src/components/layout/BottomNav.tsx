@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, FolderKanban, CheckSquare, Calendar, MoreHorizontal, Users, Briefcase, Shield, LogOut, X } from 'lucide-react'
+import { LayoutDashboard, FolderKanban, CheckSquare, Calendar, MoreHorizontal, Users, Briefcase, Shield, Wallet, LogOut, X } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 import { cn } from '@/lib/utils'
 
@@ -35,6 +35,7 @@ export function BottomNav() {
             </div>
             <div className="grid grid-cols-3 gap-2 mb-3">
               {[
+                ...((currentUser?.rol === 'admin' || currentUser?.rol === 'administrativo') ? [{ to: '/administracion', icon: Wallet, label: 'Administración' }] : []),
                 { to: '/clientes', icon: Users,    label: 'Clientes' },
                 { to: '/trabajos', icon: Briefcase, label: 'Trabajos' },
                 ...(currentUser?.rol === 'admin' ? [{ to: '/admin', icon: Shield, label: 'Admin' }] : []),

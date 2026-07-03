@@ -1,5 +1,5 @@
 import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer'
-import type { Evento, Cliente, Usuario } from '@/types'
+import type { Evento, Proyecto, Cliente, Usuario } from '@/types'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -233,6 +233,7 @@ const S = StyleSheet.create({
 
 interface Props {
   evento: Evento
+  proyecto: Proyecto
   cliente?: Cliente
   responsable?: Usuario
   usuarios: Usuario[]
@@ -240,9 +241,9 @@ interface Props {
 
 // ─── Document ───────────────────────────────────────────────────────────────
 
-export function ProyectoPDF({ evento, cliente, responsable, usuarios }: Props) {
+export function ProyectoPDF({ evento, proyecto, cliente, responsable, usuarios }: Props) {
   const renders = evento.renders || []
-  const tareas = evento.tareas || []
+  const tareas = proyecto.tareas || []
   const now = new Date().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 
   // Fecha evento display
@@ -317,13 +318,13 @@ export function ProyectoPDF({ evento, cliente, responsable, usuarios }: Props) {
         )}
 
         {/* ── Fabricación ── */}
-        {evento.fabricacion && (
+        {proyecto.fabricacion && (
           <>
             <View style={S.sectionBar}>
               <Text style={S.sectionTitle}>Fabricación</Text>
             </View>
             <View style={S.content}>
-              <Text style={S.fabricText}>{evento.fabricacion}</Text>
+              <Text style={S.fabricText}>{proyecto.fabricacion}</Text>
             </View>
           </>
         )}
@@ -354,13 +355,13 @@ export function ProyectoPDF({ evento, cliente, responsable, usuarios }: Props) {
         </View>
 
         {/* ── Notas ── */}
-        {evento.notas && (
+        {proyecto.notas && (
           <>
             <View style={S.sectionBar}>
               <Text style={S.sectionTitle}>Notas</Text>
             </View>
             <View style={S.content}>
-              <Text style={S.notasText}>{evento.notas}</Text>
+              <Text style={S.notasText}>{proyecto.notas}</Text>
             </View>
           </>
         )}
