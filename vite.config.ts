@@ -11,4 +11,15 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  build: {
+    chunkSizeWarningLimit: 3000,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('firebase')) return 'firebase'
+          if (id.includes('@react-pdf')) return 'pdf'
+        },
+      },
+    },
+  },
 })
