@@ -59,6 +59,7 @@ export interface Usuario {
   displayName?: string
   rol: UserRol
   createdAt: string
+  horaRecordatorio?: number  // hora del día (0-23), default 9
 }
 
 // ─── Planilla Gráfica ────────────────────────────────────────────────────────

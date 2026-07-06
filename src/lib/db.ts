@@ -82,6 +82,7 @@ export function userFromFirestore(id: string, data: Record<string, unknown>): Us
     displayName: (data.displayName as string) || (data.username as string) || '',
     rol: normalizeRol(data.role || data.rol),
     createdAt: tsToIso(data.createdAt) || new Date().toISOString(),
+    horaRecordatorio: typeof data.horaRecordatorio === 'number' ? data.horaRecordatorio : undefined,
   }
 }
 
