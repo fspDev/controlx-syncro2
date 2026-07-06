@@ -1,3 +1,6 @@
+# Secrets (never commit)
+scripts/serviceAccount.json
+
 # Logs
 logs
 *.log

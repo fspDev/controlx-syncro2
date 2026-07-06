@@ -12,7 +12,10 @@
   },
   "pkg": {
     "assets": [],
-    "targets": ["node18-win-x64", "node12-win-x86"]
+    "targets": [
+      "node18-win-x64",
+      "node12-win-x86"
+    ]
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.15",
@@ -46,6 +49,7 @@
     "eslint": "^10.2.1",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
+    "firebase-admin": "^14.1.0",
     "globals": "^17.5.0",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.58.2",

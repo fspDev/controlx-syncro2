@@ -1,16 +1,17 @@
 import { useState, useRef, useEffect } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { Navigate } from 'react-router-dom'
 import { useAppStore } from '@/store/useAppStore'
-import { formatCurrency, MEDIOS_PAGO } from '@/lib/utils'
+import { formatCurrency, MEDIOS_PAGO, estadoLabel, ESTADO_COLORS } from '@/lib/utils'
 import type { Cliente, Evento, MedioPago, Proyecto, RegistroAdmin } from '@/types'
-import { Wallet, User, Phone, Mail, MapPin, FileText } from 'lucide-react'
+import { Wallet, User, Phone, Mail, MapPin, FileText, X, Calendar, Package, CheckSquare, Image, FolderOpen } from 'lucide-react'
 
 type Vista = 'todos' | 'curso' | 'completado'
+type Seleccion = { evento: Evento; proyecto: Proyecto } | null
 
 export function AdministracionPage() {
-  const { currentUser, eventos, clientes, registrosAdmin, getOrCreateRegistroAdmin, updateRegistroAdmin } = useAppStore()
-  const navigate = useNavigate()
+  const { currentUser, eventos, clientes, usuarios, registrosAdmin, getOrCreateRegistroAdmin, updateRegistroAdmin } = useAppStore()
   const [vista, setVista] = useState<Vista>('curso')
+  const [seleccion, setSeleccion] = useState<Seleccion>(null)
 
   if (currentUser?.rol !== 'admin' && currentUser?.rol !== 'administrativo') return <Navigate to="/dashboard" replace />
 
@@ -83,27 +84,42 @@ export function AdministracionPage() {
                   proyecto={proyecto}
                   cliente={clientes.find(c => c.id === proyecto.clienteId)}
                   registro={registroDe(proyecto.id)}
+                  selected={seleccion?.proyecto.id === proyecto.id}
+                  onSelect={() => setSeleccion(s => s?.proyecto.id === proyecto.id ? null : { evento, proyecto })}
                   getOrCreateRegistroAdmin={getOrCreateRegistroAdmin}
                   updateRegistroAdmin={updateRegistroAdmin}
-                  onNavigate={() => navigate(`/proyectos/${evento.id}`)}
                 />
               ))}
             </tbody>
           </table>
         </div>
       </div>
+
+      {seleccion && (
+        <ProyectoDetailPanel
+          evento={seleccion.evento}
+          proyecto={seleccion.proyecto}
+          cliente={clientes.find(c => c.id === seleccion.proyecto.clienteId)}
+          usuarios={usuarios}
+          registro={registroDe(seleccion.proyecto.id)}
+          getOrCreateRegistroAdmin={getOrCreateRegistroAdmin}
+          updateRegistroAdmin={updateRegistroAdmin}
+          onClose={() => setSeleccion(null)}
+        />
+      )}
     </div>
   )
 }
 
-function FilaAdministracion({ evento, proyecto, cliente, registro, getOrCreateRegistroAdmin, updateRegistroAdmin, onNavigate }: {
+function FilaAdministracion({ evento, proyecto, cliente, registro, selected, onSelect, getOrCreateRegistroAdmin, updateRegistroAdmin }: {
   evento: Pick<Evento, 'id' | 'titulo'>
   proyecto: Pick<Proyecto, 'id' | 'importe'>
   cliente?: Cliente
   registro?: RegistroAdmin
+  selected: boolean
+  onSelect: () => void
   getOrCreateRegistroAdmin: (proyectoId: string) => string
   updateRegistroAdmin: (id: string, data: Partial<Omit<RegistroAdmin, 'id' | 'proyectoId'>>) => void
-  onNavigate: () => void
 }) {
   const [concepto, setConcepto] = useState(registro?.concepto || '')
   const formasPago = registro?.formasPago || []
@@ -121,11 +137,14 @@ function FilaAdministracion({ evento, proyecto, cliente, registro, getOrCreateRe
   }
 
   return (
-    <tr className="hover:bg-[var(--surface-h)] transition-colors">
+    <tr
+      onClick={onSelect}
+      className={`cursor-pointer transition-colors ${selected ? 'bg-brand-500/10' : 'hover:bg-[var(--surface-h)]'}`}
+    >
       <td className="px-4 py-3">
-        <button onClick={onNavigate} className="text-sm font-medium text-brand-400 hover:text-brand-300 cursor-pointer transition-colors text-left">
+        <span className={`text-sm font-medium transition-colors ${selected ? 'text-brand-300' : 'text-brand-400'}`}>
           {evento.titulo}
-        </button>
+        </span>
       </td>
       <td className="px-4 py-3 text-sm text-gray-400">
         <ClienteInfo cliente={cliente} />
@@ -177,6 +196,243 @@ function FilaAdministracion({ evento, proyecto, cliente, registro, getOrCreateRe
         />
       </td>
     </tr>
+  )
+}
+
+function ProyectoDetailPanel({ evento, proyecto, cliente, usuarios, registro, getOrCreateRegistroAdmin, updateRegistroAdmin, onClose }: {
+  evento: Evento
+  proyecto: Proyecto
+  cliente?: Cliente
+  usuarios: import('@/types').Usuario[]
+  registro?: RegistroAdmin
+  getOrCreateRegistroAdmin: (proyectoId: string) => string
+  updateRegistroAdmin: (id: string, data: Partial<Omit<RegistroAdmin, 'id' | 'proyectoId'>>) => void
+  onClose: () => void
+}) {
+  const [concepto, setConcepto] = useState(registro?.concepto || '')
+  const formasPago = registro?.formasPago || []
+  const panelRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    setConcepto(registro?.concepto || '')
+  }, [registro?.concepto])
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) onClose()
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [onClose])
+
+  const ensureId = () => registro?.id || getOrCreateRegistroAdmin(proyecto.id)
+
+  const handleConceptoBlur = () => {
+    if (concepto === (registro?.concepto || '')) return
+    updateRegistroAdmin(ensureId(), { concepto })
+  }
+
+  const toggleFormaPago = (forma: MedioPago) => {
+    const next = formasPago.includes(forma) ? formasPago.filter(f => f !== forma) : [...formasPago, forma]
+    updateRegistroAdmin(ensureId(), { formasPago: next })
+  }
+
+  const responsable = usuarios.find(u => u.id === proyecto.responsableId)
+  const tareasDone = proyecto.tareas.filter(t => t.completada).length
+  const renders = evento.renders || []
+
+  const formatDate = (iso?: string) => {
+    if (!iso) return null
+    return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })
+  }
+
+  return (
+    <div className="fixed inset-0 z-40 flex justify-end pointer-events-none">
+      <div
+        ref={panelRef}
+        className="pointer-events-auto w-full max-w-sm bg-[var(--surface)] border-l border-[var(--border)] shadow-2xl flex flex-col h-full overflow-y-auto animate-in slide-in-from-right duration-200"
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between p-5 border-b border-[var(--border)] shrink-0">
+          <div className="flex-1 min-w-0 pr-3">
+            <p className="text-xs text-gray-500 mb-1">{cliente?.nombre || '—'}</p>
+            <h2 className="text-base font-bold text-gray-100 leading-snug">{evento.titulo}</h2>
+          </div>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-300 transition-colors cursor-pointer shrink-0 mt-0.5">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="flex-1 p-5 space-y-5">
+          {/* Render thumbnail */}
+          {renders.length > 0 && (
+            <div className="rounded-xl overflow-hidden border border-[var(--border)] aspect-video bg-[var(--bg)]">
+              <img src={renders[0]} alt="render" className="w-full h-full object-cover" />
+            </div>
+          )}
+
+          {/* Estado + importe */}
+          <div className="flex items-center gap-3">
+            <span className={`px-2.5 py-1 rounded-full text-xs font-medium border border-transparent ${ESTADO_COLORS[proyecto.estado].bg} ${ESTADO_COLORS[proyecto.estado].text}`}>
+              {estadoLabel(proyecto.estado)}
+            </span>
+            <span className="ml-auto text-lg font-bold text-gray-100">{formatCurrency(proyecto.importe)}</span>
+          </div>
+
+          {/* Info básica */}
+          <div className="space-y-2.5">
+            {evento.lugar && (
+              <div className="flex items-center gap-2.5 text-sm text-gray-400">
+                <MapPin size={14} className="text-gray-600 shrink-0" />
+                <span>{evento.lugar}</span>
+              </div>
+            )}
+            {responsable && (
+              <div className="flex items-center gap-2.5 text-sm text-gray-400">
+                <User size={14} className="text-gray-600 shrink-0" />
+                <span>{responsable.displayName || responsable.username}</span>
+              </div>
+            )}
+            {proyecto.fabricacion && (
+              <div className="flex items-start gap-2.5 text-sm text-gray-400">
+                <Package size={14} className="text-gray-600 shrink-0 mt-0.5" />
+                <span>{proyecto.fabricacion}</span>
+              </div>
+            )}
+            {(evento.eventoInicio || evento.eventoFin) && (
+              <div className="flex items-center gap-2.5 text-sm text-gray-400">
+                <Calendar size={14} className="text-gray-600 shrink-0" />
+                <span>
+                  {formatDate(evento.eventoInicio)}
+                  {evento.eventoFin && evento.eventoFin !== evento.eventoInicio && ` → ${formatDate(evento.eventoFin)}`}
+                </span>
+              </div>
+            )}
+            {evento.carpetaServidor && (
+              <div className="flex items-center gap-2.5 text-sm text-gray-400">
+                <FolderOpen size={14} className="text-gray-600 shrink-0" />
+                <span className="font-mono text-xs truncate">{evento.carpetaServidor}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Tareas */}
+          {proyecto.tareas.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <CheckSquare size={13} className="text-gray-600" />
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Tareas — {tareasDone}/{proyecto.tareas.length}
+                </p>
+              </div>
+              <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                {proyecto.tareas.map(t => (
+                  <div key={t.id} className="flex items-center gap-2.5 text-sm">
+                    <div className={`w-3.5 h-3.5 rounded-full border shrink-0 flex items-center justify-center ${
+                      t.completada ? 'bg-brand-500/20 border-brand-500/60' : 'border-[var(--border)]'
+                    }`}>
+                      {t.completada && <div className="w-1.5 h-1.5 rounded-full bg-brand-400" />}
+                    </div>
+                    <span className={t.completada ? 'text-gray-600 line-through' : 'text-gray-300'}>{t.titulo}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Renders adicionales */}
+          {renders.length > 1 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Image size={13} className="text-gray-600" />
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Renders</p>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {renders.slice(1).map((r, i) => (
+                  <div key={i} className="aspect-video rounded-lg overflow-hidden border border-[var(--border)] bg-[var(--bg)]">
+                    <img src={r} alt={`render ${i + 2}`} className="w-full h-full object-cover" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Notas */}
+          {proyecto.notas && (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <FileText size={13} className="text-gray-600" />
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Notas</p>
+              </div>
+              <p className="text-sm text-gray-400 whitespace-pre-wrap leading-relaxed">{proyecto.notas}</p>
+            </div>
+          )}
+
+          {/* Separador */}
+          <div className="border-t border-[var(--border)]" />
+
+          {/* Campos admin */}
+          <div className="space-y-4">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Administración</p>
+
+            <div className="space-y-1.5">
+              <label className="text-xs text-gray-500">Concepto</label>
+              <input
+                value={concepto}
+                onChange={e => setConcepto(e.target.value)}
+                onBlur={handleConceptoBlur}
+                placeholder="Concepto..."
+                className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-gray-200 placeholder:text-gray-600 focus:border-brand-500/50 focus:outline-none transition-all"
+                onClick={e => e.stopPropagation()}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs text-gray-500">Forma de Pago</label>
+              <div className="flex flex-wrap gap-1.5">
+                {MEDIOS_PAGO.map(forma => {
+                  const active = formasPago.includes(forma as MedioPago)
+                  return (
+                    <button
+                      key={forma}
+                      onClick={e => { e.stopPropagation(); toggleFormaPago(forma as MedioPago) }}
+                      className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-all cursor-pointer ${
+                        active
+                          ? 'bg-brand-500/15 text-brand-400 border-brand-500/40'
+                          : 'bg-transparent text-gray-500 border-[var(--border)] hover:border-gray-500'
+                      }`}
+                    >
+                      {forma}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="flex gap-6">
+              <label className="flex items-center gap-2.5 cursor-pointer" onClick={e => e.stopPropagation()}>
+                <input
+                  type="checkbox"
+                  checked={registro?.pagado || false}
+                  onChange={e => updateRegistroAdmin(ensureId(), { pagado: e.target.checked })}
+                  className="w-4 h-4 accent-brand-500 cursor-pointer"
+                />
+                <span className="text-sm text-gray-400">Pagado</span>
+              </label>
+              <label className="flex items-center gap-2.5 cursor-pointer" onClick={e => e.stopPropagation()}>
+                <input
+                  type="checkbox"
+                  checked={registro?.facturado || false}
+                  onChange={e => updateRegistroAdmin(ensureId(), { facturado: e.target.checked })}
+                  className="w-4 h-4 accent-brand-500 cursor-pointer"
+                />
+                <span className="text-sm text-gray-400">Facturado</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }
 
