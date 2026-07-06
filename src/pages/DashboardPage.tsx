@@ -26,7 +26,6 @@ export function DashboardPage() {
   const proximos = eventos
     .filter(e => e.eventoInicio && e.proyectos.some(proyectoActivo) && new Date(e.eventoInicio) >= today)
     .sort((a, b) => new Date(a.eventoInicio!).getTime() - new Date(b.eventoInicio!).getTime())
-    .slice(0, 5)
 
   const estadoCounts = ESTADO_ORDER.reduce((acc, estado) => {
     acc[estado] = eventos.flatMap(e => e.proyectos).filter(p => p.estado === estado).length

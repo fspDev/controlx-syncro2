@@ -9,6 +9,7 @@ import {
   signOut as signOutSecondary,
 } from 'firebase/auth'
 import { auth, secondaryAuth } from '@/lib/firebase'
+import { registerFcmToken } from '@/lib/fcm'
 import {
   fetchEventos, saveEvento, deleteEventoDoc,
   subscribeEventos, subscribeClientes,
@@ -173,6 +174,9 @@ export const useAppStore = create<AppState>()(
               }
               set({ currentUser: profile, authLoading: false })
 
+              // Registrar token FCM para push notifications
+              registerFcmToken(profile.id).catch(() => {})
+
               // Real-time listeners — keep eventos and clientes in sync
               unsubEventos?.()
               unsubClientes?.()
@@ -323,7 +327,7 @@ export const useAppStore = create<AppState>()(
           eventos: s.eventos.map(e => e.id === id ? { ...e, ...data, updatedAt: new Date().toISOString() } : e)
         }))
         const updated = get().eventos.find(e => e.id === id)
-        if (updated) saveEvento(updated).catch(console.error)
+        if (updated) saveEvento(updated, get().currentUser?.id).catch(console.error)
       },
       deleteEvento: (id) => {
         set(s => ({ eventos: s.eventos.filter(e => e.id !== id) }))
@@ -345,7 +349,7 @@ export const useAppStore = create<AppState>()(
             : e)
         }))
         const updated = get().eventos.find(e => e.id === eventoId)
-        if (updated) saveEvento(updated).catch(console.error)
+        if (updated) saveEvento(updated, get().currentUser?.id).catch(console.error)
       },
       updateProyecto: (eventoId, proyectoId, data) => {
         const now = new Date().toISOString()
@@ -355,7 +359,7 @@ export const useAppStore = create<AppState>()(
             : e)
         }))
         const updated = get().eventos.find(e => e.id === eventoId)
-        if (updated) saveEvento(updated).catch(console.error)
+        if (updated) saveEvento(updated, get().currentUser?.id).catch(console.error)
       },
       deleteProyecto: (eventoId, proyectoId) => {
         const now = new Date().toISOString()
@@ -365,7 +369,7 @@ export const useAppStore = create<AppState>()(
             : e)
         }))
         const updated = get().eventos.find(e => e.id === eventoId)
-        if (updated) saveEvento(updated).catch(console.error)
+        if (updated) saveEvento(updated, get().currentUser?.id).catch(console.error)
       },
       addTarea: (eventoId, proyectoId, tarea) => {
         const id = genId()
@@ -382,7 +386,7 @@ export const useAppStore = create<AppState>()(
             : e)
         }))
         const updated = get().eventos.find(e => e.id === eventoId)
-        if (updated) saveEvento(updated).catch(console.error)
+        if (updated) saveEvento(updated, get().currentUser?.id).catch(console.error)
       },
       updateTarea: (eventoId, proyectoId, tareaId, data) => {
         const now = new Date().toISOString()
@@ -398,7 +402,7 @@ export const useAppStore = create<AppState>()(
             : e)
         }))
         const updated = get().eventos.find(e => e.id === eventoId)
-        if (updated) saveEvento(updated).catch(console.error)
+        if (updated) saveEvento(updated, get().currentUser?.id).catch(console.error)
       },
       deleteTarea: (eventoId, proyectoId, tareaId) => {
         const now = new Date().toISOString()
@@ -414,7 +418,7 @@ export const useAppStore = create<AppState>()(
             : e)
         }))
         const updated = get().eventos.find(e => e.id === eventoId)
-        if (updated) saveEvento(updated).catch(console.error)
+        if (updated) saveEvento(updated, get().currentUser?.id).catch(console.error)
       },
 
       agenteUrl: 'http://localhost:3001',

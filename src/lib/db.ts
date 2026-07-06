@@ -224,8 +224,10 @@ export function subscribeClientes(cb: (clientes: Cliente[]) => void): Unsubscrib
   }, err => console.error('[onSnapshot clientes]', err))
 }
 
-export async function saveEvento(e: Evento): Promise<void> {
-  await setDoc(doc(db, 'events', e.id), stripUndefined(eventoToFirestore(e)), { merge: true })
+export async function saveEvento(e: Evento, updatedBy?: string): Promise<void> {
+  const data = stripUndefined(eventoToFirestore(e)) as Record<string, unknown>
+  if (updatedBy) data.updatedBy = updatedBy
+  await setDoc(doc(db, 'events', e.id), data, { merge: true })
 }
 
 export async function deleteEventoDoc(id: string): Promise<void> {

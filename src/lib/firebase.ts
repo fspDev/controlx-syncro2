@@ -2,6 +2,7 @@ import { initializeApp } from 'firebase/app'
 import { getAuth } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
 import { getStorage } from 'firebase/storage'
+import { getMessaging, isSupported } from 'firebase/messaging'
 
 const firebaseConfig = {
   apiKey: "AIzaSyDyfjvBPYLBn_x8y5u29J1z8iz63xCvicM",
@@ -16,6 +17,8 @@ export const app = initializeApp(firebaseConfig)
 export const auth = getAuth(app)
 export const db = getFirestore(app)
 export const storage = getStorage(app)
+export const messagingSupported = isSupported()
+export const messaging = isSupported().then(yes => yes ? getMessaging(app) : null)
 
 // Instancia secundaria — usada solo para crear cuentas de usuario nuevas.
 // createUserWithEmailAndPassword inicia sesión automáticamente como el usuario

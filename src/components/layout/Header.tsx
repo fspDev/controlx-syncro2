@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Search, Menu, CheckSquare } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
 import { proyectoClientesLabel } from '@/lib/utils'
+import { NotificationBell } from '@/components/ui/NotificationBell'
 
 export function Header() {
   const [query, setQuery] = useState('')
@@ -74,6 +75,8 @@ export function Header() {
           </div>
         )}
       </div>
+
+      <NotificationBell />
 
       {/* Tareas pendientes */}
       {tareasPendientes > 0 && (
