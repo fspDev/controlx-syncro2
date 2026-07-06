@@ -142,7 +142,7 @@ function FilaAdministracion({ evento, proyecto, cliente, registro, selected, onS
       className={`cursor-pointer transition-colors ${selected ? 'bg-brand-500/10' : 'hover:bg-[var(--surface-h)]'}`}
     >
       <td className="px-4 py-3">
-        <span className={`text-sm font-medium transition-colors ${selected ? 'text-brand-300' : 'text-brand-400'}`}>
+        <span className="text-sm font-medium text-gray-200">
           {evento.titulo}
         </span>
       </td>
@@ -150,7 +150,7 @@ function FilaAdministracion({ evento, proyecto, cliente, registro, selected, onS
         <ClienteInfo cliente={cliente} />
       </td>
       <td className="px-4 py-3 text-sm font-medium text-gray-300">{formatCurrency(proyecto.importe)}</td>
-      <td className="px-4 py-3">
+      <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
         <input
           value={concepto}
           onChange={e => setConcepto(e.target.value)}
@@ -159,7 +159,7 @@ function FilaAdministracion({ evento, proyecto, cliente, registro, selected, onS
           className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-sm text-gray-200 placeholder:text-gray-600 focus:border-brand-500/50 focus:outline-none transition-all"
         />
       </td>
-      <td className="px-4 py-3">
+      <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
         <div className="flex flex-wrap gap-1">
           {MEDIOS_PAGO.map(forma => {
             const active = formasPago.includes(forma as MedioPago)
