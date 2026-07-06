@@ -179,7 +179,7 @@ function FilaAdministracion({ evento, proyecto, cliente, registro, selected, onS
           })}
         </div>
       </td>
-      <td className="px-4 py-3 text-center">
+      <td className="px-4 py-3 text-center" onClick={e => e.stopPropagation()}>
         <input
           type="checkbox"
           checked={registro?.pagado || false}
@@ -187,7 +187,7 @@ function FilaAdministracion({ evento, proyecto, cliente, registro, selected, onS
           className="w-4 h-4 accent-brand-500 cursor-pointer"
         />
       </td>
-      <td className="px-4 py-3 text-center">
+      <td className="px-4 py-3 text-center" onClick={e => e.stopPropagation()}>
         <input
           type="checkbox"
           checked={registro?.facturado || false}
