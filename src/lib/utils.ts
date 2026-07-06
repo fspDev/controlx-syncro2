@@ -41,7 +41,7 @@ export const TRABAJO_ESTADO_COLORS: Record<TrabajoEstado, { bg: string; text: st
 
 export const ESTADOS_EVENTO: EventoEstado[] = ['Negociacion', 'Confirmado', 'Armado', 'Finalizado', 'Cancelado']
 export const ESTADOS_TRABAJO: TrabajoEstado[] = ['Pendiente', 'Cobrado']
-export const MEDIOS_PAGO: string[] = ['Efectivo', 'Transferencia', 'Cheque', 'Tarjeta']
+export const MEDIOS_PAGO: string[] = ['Transferencia', 'Echeqs', 'Retenciones', 'Efectivo', 'Cheques físicos']
 
 export function estadoLabel(estado: EventoEstado): string {
   if (estado === 'Negociacion') return 'Negociación'

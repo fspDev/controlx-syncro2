@@ -1,6 +1,6 @@
 export type EventoEstado = 'Negociacion' | 'Confirmado' | 'Armado' | 'Finalizado' | 'Cancelado'
 export type UserRol = 'admin' | 'administrativo' | 'user'
-export type MedioPago = 'Efectivo' | 'Transferencia' | 'Cheque' | 'Tarjeta'
+export type MedioPago = 'Transferencia' | 'Echeqs' | 'Retenciones' | 'Efectivo' | 'Cheques físicos'
 export type TrabajoEstado = 'Pendiente' | 'Cobrado'
 
 export interface Cliente {
