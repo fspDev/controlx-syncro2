@@ -10,7 +10,7 @@ service cloud.firestore {
       return isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rol in ['admin', 'administrativo'];
     }
 
-    // Usuarios: cada uno puede leer y actualizar su propio documento
+    // Usuarios — cada uno lee y escribe su propio documento
     match /users/{userId} {
       allow read: if isAuth();
       allow write: if isAuth() && request.auth.uid == userId;
@@ -28,7 +28,19 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Tareas de usuario — el dueño y los compartidos pueden leer; el dueño puede escribir
+    // Trabajos externos
+    match /external_jobs/{jobId} {
+      allow read: if isAuth();
+      allow write: if isAuth();
+    }
+
+    // Registros de administración
+    match /registros_admin/{regId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Tareas de usuario — el dueño puede escribir; dueño y compartidos pueden leer
     match /tareas_usuario/{tareaId} {
       allow read: if isAuth() && (
         resource.data.userId == request.auth.uid ||
@@ -38,21 +50,9 @@ service cloud.firestore {
       allow update, delete: if isAuth() && resource.data.userId == request.auth.uid;
     }
 
-    // Tareas plantilla
-    match /tareas_plantilla/{tareaId} {
+    // Configuración (tareasPlantilla, carpetaBase)
+    match /config/{docId} {
       allow read: if isAuth();
-      allow write: if isAdmin();
-    }
-
-    // Trabajos externos
-    match /trabajos/{trabajoId} {
-      allow read: if isAuth();
-      allow write: if isAuth();
-    }
-
-    // Registros de administración
-    match /registrosAdmin/{regId} {
-      allow read: if isAdmin();
       allow write: if isAdmin();
     }
 
@@ -60,12 +60,6 @@ service cloud.firestore {
     match /planillas/{planillaId} {
       allow read: if isAuth();
       allow write: if isAuth();
-    }
-
-    // Carpeta base (archivos)
-    match /carpetaBase/{docId} {
-      allow read: if isAuth();
-      allow write: if isAdmin();
     }
 
     // Notificaciones — cada usuario solo accede a las suyas
