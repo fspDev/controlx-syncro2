@@ -1,14 +1,12 @@
-// v5 - skipWaiting + clients.claim para activacion inmediata
+// v6 - SW unificado: FCM + instalabilidad PWA + click
 importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js')
 importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js')
 
-self.addEventListener('install', event => {
-  event.waitUntil(self.skipWaiting())
-})
+self.addEventListener('install', () => self.skipWaiting())
+self.addEventListener('activate', event => event.waitUntil(self.clients.claim()))
 
-self.addEventListener('activate', event => {
-  event.waitUntil(clients.claim())
-})
+// No-op fetch: cumple el criterio de instalabilidad PWA sin cachear nada
+self.addEventListener('fetch', () => {})
 
 firebase.initializeApp({
   apiKey: "AIzaSyDyfjvBPYLBn_x8y5u29J1z8iz63xCvicM",
@@ -21,15 +19,16 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging()
 
+// Payload data-only: este handler siempre controla el display
 messaging.onBackgroundMessage(payload => {
   console.log('[SW] onBackgroundMessage', JSON.stringify(payload))
-  const title = payload.notification?.title || payload.data?.title || 'Control X'
-  const body = payload.notification?.body || payload.data?.body || ''
-  const url = payload.data?.url || payload.fcmOptions?.link || '/controlx-syncro2/'
+  const title = payload.data?.title || 'Control X'
+  const body = payload.data?.body || ''
+  const url = payload.data?.url || '/controlx-syncro2/'
   return self.registration.showNotification(title, {
     body,
-    icon: '/controlx-syncro2/icon-192.png',
-    badge: '/controlx-syncro2/icon-192.png',
+    icon: '/controlx-syncro2/pwa-icon-192.png',
+    badge: '/controlx-syncro2/pwa-icon-192.png',
     vibrate: [200, 100, 200],
     data: { url },
   })

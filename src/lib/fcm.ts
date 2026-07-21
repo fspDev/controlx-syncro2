@@ -5,12 +5,14 @@ import { messaging, db } from '@/lib/firebase'
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY as string
 
 async function getSwRegistration(): Promise<ServiceWorkerRegistration> {
-  // Reusa el SW existente si ya está registrado en este scope
-  const existing = await navigator.serviceWorker.getRegistration('/controlx-syncro2/')
-  if (existing) return existing
-  return navigator.serviceWorker.register('/controlx-syncro2/firebase-messaging-sw.js', {
+  // Registrar es idempotente: si ya está el mismo script en este scope,
+  // devuelve el registro existente. Garantiza que el token FCM quede atado
+  // al SW que sí tiene handler de notificaciones (no a un sw.js sin handler).
+  const reg = await navigator.serviceWorker.register('/controlx-syncro2/firebase-messaging-sw.js', {
     scope: '/controlx-syncro2/',
   })
+  await navigator.serviceWorker.ready
+  return reg
 }
 
 export async function registerFcmToken(userId: string): Promise<void> {
