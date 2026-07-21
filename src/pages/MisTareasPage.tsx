@@ -277,7 +277,7 @@ function TareaGroup({
       <div className="space-y-2">
         {tareas.map(t => {
           const p = PRIORIDAD_COLORS[t.prioridad]
-          const vencida = t.fechaVencimiento && !t.completada && new Date(t.fechaVencimiento) < new Date()
+          const vencida = t.fechaVencimiento && !t.completada && t.fechaVencimiento < new Date().toISOString().slice(0, 10)
           const esDueno = t.userId === currentUserId
           const compartidos = t.compartidaCon || []
           const estaCompartirAbierto = compartirAbierto === t.id
