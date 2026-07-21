@@ -30,13 +30,13 @@ export async function registerFcmToken(userId: string): Promise<void> {
     await updateDoc(doc(db, 'users', userId), { fcmTokens: arrayUnion(token) })
     console.log('[FCM] Token registrado OK')
 
-    // Mostrar notificaciones cuando la app está en primer plano
+    // Mostrar notificaciones cuando la app está en primer plano (data-only)
     onMessage(msg, payload => {
-      const { title, body } = payload.notification || {}
+      const { title, body } = payload.data || {}
       if (!title) return
       if (Notification.permission === 'granted') {
         new Notification(title, {
-          body,
+          body: body || '',
           icon: '/controlx-syncro2/icon-192.png',
         })
       }

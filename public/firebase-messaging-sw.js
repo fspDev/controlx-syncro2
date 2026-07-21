@@ -12,21 +12,20 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging()
 
-// Muestra la notificación cuando la app está en segundo plano
+// Mensajes data-only: onBackgroundMessage siempre controla el display
 messaging.onBackgroundMessage(payload => {
-  const { title, body } = payload.notification || {}
+  const { title, body, url } = payload.data || {}
   if (!title) return
   self.registration.showNotification(title, {
-    body,
+    body: body || '',
     icon: '/controlx-syncro2/icon-192.png',
     badge: '/controlx-syncro2/icon-192.png',
-    data: payload.fcmOptions,
+    data: { url: url || '/controlx-syncro2/' },
   })
 })
 
-// Click en notificación abre la URL
 self.addEventListener('notificationclick', event => {
   event.notification.close()
-  const url = event.notification.data?.link || '/controlx-syncro2/'
-  event.waitUntil(clients.openWindow(url))
+  const url = event.notification.data?.url || '/controlx-syncro2/'
+  event.waitUntil(clients.openWindow('https://fspdev.github.io' + url))
 })

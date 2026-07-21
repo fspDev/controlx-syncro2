@@ -27,9 +27,8 @@ async function sendNotification(userId, { title, body, url }) {
   if (!tokens.length) return
 
   const message = {
-    notification: { title, body },
+    data: { title, body: body || '', url: url || '/controlx-syncro2/' },
     webpush: {
-      notification: { title, body, icon: 'https://fspdev.github.io/controlx-syncro2/icon-192.png' },
       fcmOptions: { link: `https://fspdev.github.io${url || '/controlx-syncro2/'}` },
     },
     tokens,
