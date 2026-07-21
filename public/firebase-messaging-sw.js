@@ -1,4 +1,4 @@
-// v3 - data-only payload
+// v4 - webpush.notification handled automatically by Firebase
 importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js')
 importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js')
 
@@ -12,18 +12,6 @@ firebase.initializeApp({
 })
 
 const messaging = firebase.messaging()
-
-messaging.onBackgroundMessage(payload => {
-  const { title, body, url } = payload.data || {}
-  if (!title) return
-  return self.registration.showNotification(title, {
-    body: body || '',
-    icon: '/controlx-syncro2/icon-192.png',
-    badge: '/controlx-syncro2/icon-192.png',
-    tag: 'controlx-notif',
-    data: { url: url || '/controlx-syncro2/' },
-  })
-})
 
 self.addEventListener('notificationclick', event => {
   event.notification.close()
