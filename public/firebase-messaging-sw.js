@@ -1,3 +1,4 @@
+// v3 - data-only payload
 importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js')
 importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js')
 
@@ -12,20 +13,30 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging()
 
-// Mensajes data-only: onBackgroundMessage siempre controla el display
 messaging.onBackgroundMessage(payload => {
   const { title, body, url } = payload.data || {}
   if (!title) return
-  self.registration.showNotification(title, {
+  return self.registration.showNotification(title, {
     body: body || '',
     icon: '/controlx-syncro2/icon-192.png',
     badge: '/controlx-syncro2/icon-192.png',
+    tag: 'controlx-notif',
     data: { url: url || '/controlx-syncro2/' },
   })
 })
 
 self.addEventListener('notificationclick', event => {
   event.notification.close()
-  const url = event.notification.data?.url || '/controlx-syncro2/'
-  event.waitUntil(clients.openWindow('https://fspdev.github.io' + url))
+  const targetUrl = 'https://fspdev.github.io' + (event.notification.data?.url || '/controlx-syncro2/')
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+      for (const client of clientList) {
+        if (client.url.startsWith('https://fspdev.github.io/controlx-syncro2') && 'focus' in client) {
+          client.navigate(targetUrl)
+          return client.focus()
+        }
+      }
+      return clients.openWindow(targetUrl)
+    })
+  )
 })
