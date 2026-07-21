@@ -1,6 +1,14 @@
-// v4 - webpush.notification handled automatically by Firebase
+// v5 - skipWaiting + clients.claim para activacion inmediata
 importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js')
 importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js')
+
+self.addEventListener('install', event => {
+  event.waitUntil(self.skipWaiting())
+})
+
+self.addEventListener('activate', event => {
+  event.waitUntil(clients.claim())
+})
 
 firebase.initializeApp({
   apiKey: "AIzaSyDyfjvBPYLBn_x8y5u29J1z8iz63xCvicM",
@@ -12,6 +20,20 @@ firebase.initializeApp({
 })
 
 const messaging = firebase.messaging()
+
+messaging.onBackgroundMessage(payload => {
+  console.log('[SW] onBackgroundMessage', JSON.stringify(payload))
+  const title = payload.notification?.title || payload.data?.title || 'Control X'
+  const body = payload.notification?.body || payload.data?.body || ''
+  const url = payload.data?.url || payload.fcmOptions?.link || '/controlx-syncro2/'
+  return self.registration.showNotification(title, {
+    body,
+    icon: '/controlx-syncro2/icon-192.png',
+    badge: '/controlx-syncro2/icon-192.png',
+    vibrate: [200, 100, 200],
+    data: { url },
+  })
+})
 
 self.addEventListener('notificationclick', event => {
   event.notification.close()
