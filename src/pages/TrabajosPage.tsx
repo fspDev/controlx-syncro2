@@ -8,7 +8,16 @@ import { Select } from '@/components/ui/Select'
 import { Badge } from '@/components/ui/Badge'
 import { formatDate, formatCurrency, TRABAJO_ESTADO_COLORS, ESTADOS_TRABAJO, MEDIOS_PAGO } from '@/lib/utils'
 import type { TrabajoExterno, TrabajoEstado, MedioPago } from '@/types'
-import { Plus, Edit2, Trash2, CheckSquare } from 'lucide-react'
+import { Plus, Edit2, Trash2, CheckSquare, ArrowUp, ArrowDown } from 'lucide-react'
+
+type SortKey = 'fechaEntrega' | 'createdAt' | 'precioVenta' | 'clienteNombre'
+
+const SORT_OPTS: { value: SortKey; label: string }[] = [
+  { value: 'fechaEntrega', label: 'Fecha de entrega' },
+  { value: 'createdAt', label: 'Fecha de creación' },
+  { value: 'precioVenta', label: 'Precio' },
+  { value: 'clienteNombre', label: 'Cliente' },
+]
 
 type FormData = Omit<TrabajoExterno, 'id' | 'createdAt' | 'updatedAt'>
 
@@ -24,10 +33,29 @@ export function TrabajosPage() {
   const [editId, setEditId] = useState<string | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [filterEstado, setFilterEstado] = useState<TrabajoEstado | 'Todos'>('Pendiente')
+  const [sortKey, setSortKey] = useState<SortKey>('createdAt')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [form, setForm] = useState<FormData>(EMPTY)
 
-  const filtered = trabajos.filter(t => filterEstado === 'Todos' || t.estado === filterEstado)
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  const filtered = trabajos
+    .filter(t => filterEstado === 'Todos' || t.estado === filterEstado)
+    .slice()
+    .sort((a, b) => {
+      const dir = sortDir === 'asc' ? 1 : -1
+      if (sortKey === 'precioVenta') {
+        return (a.precioVenta - b.precioVenta) * dir
+      }
+      if (sortKey === 'clienteNombre') {
+        return a.clienteNombre.localeCompare(b.clienteNombre, 'es', { sensitivity: 'base' }) * dir
+      }
+      // Fechas (createdAt siempre existe; fechaEntrega puede faltar → sin fecha al final)
+      const av = a[sortKey]
+      const bv = b[sortKey]
+      if (!av && !bv) return 0
+      if (!av) return 1
+      if (!bv) return -1
+      return (new Date(av).getTime() - new Date(bv).getTime()) * dir
+    })
 
   const totalFacturado = trabajos.reduce((s, t) => s + t.precioVenta, 0)
   const totalCobrado = trabajos.filter(t => t.estado === 'Cobrado').reduce((s, t) => s + t.precioVenta, 0)
@@ -81,7 +109,7 @@ export function TrabajosPage() {
       </div>
 
       {/* Filtros */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
         <div className="flex bg-[var(--surface)] border border-[var(--border)] rounded-lg p-0.5">
           {(['Todos', ...ESTADOS_TRABAJO] as const).map(e => (
             <button
@@ -95,7 +123,29 @@ export function TrabajosPage() {
             </button>
           ))}
         </div>
-        <span className="text-xs text-gray-600 ml-auto">{filtered.length} trabajo{filtered.length !== 1 ? 's' : ''}</span>
+
+        {/* Orden */}
+        <div className="flex items-center gap-1.5 ml-auto">
+          <span className="text-xs text-gray-600 hidden sm:inline">Ordenar por</span>
+          <select
+            value={sortKey}
+            onChange={e => setSortKey(e.target.value as SortKey)}
+            className="bg-[var(--surface)] border border-[var(--border)] rounded-lg px-2 py-1 text-sm text-gray-300 focus:outline-none focus:border-brand-500/50 cursor-pointer"
+          >
+            {SORT_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+          <button
+            onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')}
+            title={sortDir === 'asc' ? 'Ascendente' : 'Descendente'}
+            className="p-1.5 rounded-lg bg-[var(--surface)] border border-[var(--border)] text-gray-400 hover:text-gray-200 hover:bg-[var(--surface-2)] transition-all cursor-pointer"
+          >
+            {sortDir === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />}
+          </button>
+        </div>
+      </div>
+
+      <div className="flex justify-end">
+        <span className="text-xs text-gray-600">{filtered.length} trabajo{filtered.length !== 1 ? 's' : ''}</span>
       </div>
 
       {/* Tarjetas — mobile */}
