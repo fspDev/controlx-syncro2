@@ -22,10 +22,10 @@ service cloud.firestore {
       allow write: if isAuth();
     }
 
-    // Clientes
+    // Clientes — cualquier usuario autenticado puede crear y editar
     match /clientes/{clienteId} {
       allow read: if isAuth();
-      allow write: if isAdmin();
+      allow write: if isAuth();
     }
 
     // Trabajos externos
