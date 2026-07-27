@@ -7,7 +7,7 @@ import { EventoForm } from '@/components/eventos/EventoForm'
 import { ProyectoForm } from '@/components/eventos/ProyectoForm'
 import { EstadoSelector } from '@/components/eventos/EstadoSelector'
 import { formatDate, formatCurrency } from '@/lib/utils'
-import { uploadRender, deleteRender, saveEventoRenders } from '@/lib/db'
+import { uploadRender, deleteRender } from '@/lib/db'
 import type { Evento, Proyecto } from '@/types'
 import {
   ArrowLeft, Edit2, Trash2, Plus, Check, X, Calendar, MapPin,
@@ -25,10 +25,7 @@ export function EventoDetailPage() {
   const [showEdit, setShowEdit] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
   const [showAddProyecto, setShowAddProyecto] = useState(false)
-  const [lightboxImg, setLightboxImg] = useState<string | null>(null)
   const [newMiTarea, setNewMiTarea] = useState('')
-  const [uploadingRender, setUploadingRender] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   if (!evento) return (
     <div className="flex flex-col items-center justify-center h-64 gap-3">
@@ -37,35 +34,8 @@ export function EventoDetailPage() {
     </div>
   )
 
-  const renders = evento.renders || []
   const tareasPend = evento.proyectos.reduce((s, p) => s + p.tareas.filter(t => !t.completada).length, 0)
   const tareasTotal = evento.proyectos.reduce((s, p) => s + p.tareas.length, 0)
-
-  const handleRenderUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || [])
-    const current = evento.renders || []
-    const slots = MAX_RENDERS - current.length
-    if (slots <= 0) return
-    const toProcess = files.slice(0, slots)
-    e.target.value = ''
-    setUploadingRender(true)
-    try {
-      const urls = await Promise.all(toProcess.map(f => uploadRender(evento.id, f)))
-      const newRenders = [...current, ...urls]
-      updateEvento(evento.id, { renders: newRenders })
-      await saveEventoRenders(evento.id, newRenders)
-    } finally {
-      setUploadingRender(false)
-    }
-  }
-
-  const removeRender = async (idx: number) => {
-    const url = (evento.renders || [])[idx]
-    const updated = (evento.renders || []).filter((_, i) => i !== idx)
-    updateEvento(evento.id, { renders: updated })
-    await saveEventoRenders(evento.id, updated)
-    await deleteRender(url)
-  }
 
   const fechas = [
     { label: 'Armado', value: evento.armadoInicio ? `${formatDate(evento.armadoInicio)}${evento.armadoFin ? ` → ${formatDate(evento.armadoFin)}` : ''}` : '—' },
@@ -133,84 +103,6 @@ export function EventoDetailPage() {
             {evento.proyectos.map(proyecto => (
               <ProyectoCard key={proyecto.id} evento={evento} proyecto={proyecto} />
             ))}
-          </div>
-
-          {/* Renders */}
-          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <ImagePlus size={15} className="text-gray-500" />
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Renders del proyecto</h3>
-              </div>
-              <span className="text-xs text-gray-600">{renders.length}/{MAX_RENDERS}</span>
-            </div>
-
-            <div className="grid grid-cols-3 gap-3">
-              {/* Filled slots */}
-              {renders.map((src, idx) => (
-                <div key={idx} className="relative group aspect-video rounded-lg overflow-hidden border border-[var(--border)] bg-[var(--bg)]">
-                  <img
-                    src={src}
-                    alt={`Render ${idx + 1}`}
-                    className="w-full h-full object-cover cursor-pointer"
-                    onClick={() => setLightboxImg(src)}
-                  />
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
-                    <button
-                      onClick={() => setLightboxImg(src)}
-                      className="p-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-white backdrop-blur-sm cursor-pointer transition-all"
-                      title="Ver ampliado"
-                    >
-                      <ImagePlus size={13} />
-                    </button>
-                    <button
-                      onClick={() => removeRender(idx)}
-                      className="p-1.5 bg-red-500/80 hover:bg-red-500 rounded-lg text-white cursor-pointer transition-all"
-                      title="Eliminar"
-                    >
-                      <X size={13} />
-                    </button>
-                  </div>
-                  <div className="absolute bottom-1 left-1 text-xs bg-black/50 text-white px-1.5 py-0.5 rounded backdrop-blur-sm">
-                    Render {idx + 1}
-                  </div>
-                </div>
-              ))}
-
-              {/* Empty slots / upload button */}
-              {renders.length < MAX_RENDERS && (
-                uploadingRender ? (
-                  <div className="aspect-video rounded-lg border-2 border-dashed border-brand-500/40 bg-brand-500/5 flex flex-col items-center justify-center gap-2">
-                    <Loader2 size={20} className="text-brand-400 animate-spin" />
-                    <span className="text-xs text-brand-400">Subiendo...</span>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="aspect-video rounded-lg border-2 border-dashed border-[var(--border)] hover:border-brand-500/50 hover:bg-brand-500/5 transition-all flex flex-col items-center justify-center gap-2 cursor-pointer group"
-                  >
-                    <ImagePlus size={20} className="text-gray-600 group-hover:text-brand-400 transition-colors" />
-                    <span className="text-xs text-gray-600 group-hover:text-brand-400 transition-colors">Agregar render</span>
-                  </button>
-                )
-              )}
-
-              {/* Placeholder slots for visual consistency */}
-              {Array.from({ length: Math.max(0, MAX_RENDERS - renders.length - 1) }).map((_, i) => (
-                <div key={`ph-${i}`} className="aspect-video rounded-lg border border-dashed border-[var(--border-s)] flex items-center justify-center opacity-30">
-                  <ImagePlus size={16} className="text-gray-600" />
-                </div>
-              ))}
-            </div>
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              className="hidden"
-              onChange={handleRenderUpload}
-            />
           </div>
 
           {/* Mis tareas personales en este evento */}
@@ -318,24 +210,6 @@ export function EventoDetailPage() {
         </div>
       </div>
 
-      {/* Lightbox */}
-      {lightboxImg && (
-        <div
-          className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
-          onClick={() => setLightboxImg(null)}
-        >
-          <button className="absolute top-4 right-4 p-2 text-white/70 hover:text-white cursor-pointer" onClick={() => setLightboxImg(null)}>
-            <X size={22} />
-          </button>
-          <img
-            src={lightboxImg}
-            alt="Render ampliado"
-            className="max-w-full max-h-full rounded-xl shadow-2xl object-contain"
-            onClick={e => e.stopPropagation()}
-          />
-        </div>
-      )}
-
       {/* Edit Dialog */}
       <Dialog open={showEdit} onClose={() => setShowEdit(false)} title="Editar Evento" size="lg">
         <EventoForm
@@ -376,9 +250,14 @@ function ProyectoCard({ evento, proyecto }: { evento: Evento; proyecto: Proyecto
   const [newTarea, setNewTarea] = useState('')
   const [newTareaResp, setNewTareaResp] = useState('')
 
+  const [lightboxImg, setLightboxImg] = useState<string | null>(null)
+  const [uploadingRender, setUploadingRender] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
   const cliente = clientes.find(c => c.id === proyecto.clienteId)
   const responsable = usuarios.find(u => u.id === proyecto.responsableId)
   const tareasPend = proyecto.tareas.filter(t => !t.completada).length
+  const renders = proyecto.renders || []
 
   const usuariosOpts = [
     { value: '', label: '— Sin asignar —' },
@@ -390,6 +269,29 @@ function ProyectoCard({ evento, proyecto }: { evento: Evento; proyecto: Proyecto
     addTarea(evento.id, proyecto.id, { titulo: newTarea.trim(), responsableId: newTareaResp || undefined, completada: false })
     setNewTarea('')
     setNewTareaResp('')
+  }
+
+  const handleRenderUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    const current = proyecto.renders || []
+    const slots = MAX_RENDERS - current.length
+    if (slots <= 0) return
+    const toProcess = files.slice(0, slots)
+    e.target.value = ''
+    setUploadingRender(true)
+    try {
+      const urls = await Promise.all(toProcess.map(f => uploadRender(evento.id, f)))
+      updateProyecto(evento.id, proyecto.id, { renders: [...current, ...urls] })
+    } finally {
+      setUploadingRender(false)
+    }
+  }
+
+  const removeRender = async (idx: number) => {
+    const url = (proyecto.renders || [])[idx]
+    const updated = (proyecto.renders || []).filter((_, i) => i !== idx)
+    updateProyecto(evento.id, proyecto.id, { renders: updated })
+    await deleteRender(url)
   }
 
   return (
@@ -507,6 +409,99 @@ function ProyectoCard({ evento, proyecto }: { evento: Evento; proyecto: Proyecto
           </div>
         )}
       </div>
+
+      {/* Renders del proyecto */}
+      <div className="pt-3 border-t border-[var(--border)]">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <ImagePlus size={13} className="text-gray-500" />
+            <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Renders</h4>
+          </div>
+          <span className="text-xs text-gray-600">{renders.length}/{MAX_RENDERS}</span>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3">
+          {renders.map((src, idx) => (
+            <div key={idx} className="relative group aspect-video rounded-lg overflow-hidden border border-[var(--border)] bg-[var(--bg)]">
+              <img
+                src={src}
+                alt={`Render ${idx + 1}`}
+                className="w-full h-full object-cover cursor-pointer"
+                onClick={() => setLightboxImg(src)}
+              />
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
+                <button
+                  onClick={() => setLightboxImg(src)}
+                  className="p-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-white backdrop-blur-sm cursor-pointer transition-all"
+                  title="Ver ampliado"
+                >
+                  <ImagePlus size={13} />
+                </button>
+                <button
+                  onClick={() => removeRender(idx)}
+                  className="p-1.5 bg-red-500/80 hover:bg-red-500 rounded-lg text-white cursor-pointer transition-all"
+                  title="Eliminar"
+                >
+                  <X size={13} />
+                </button>
+              </div>
+              <div className="absolute bottom-1 left-1 text-xs bg-black/50 text-white px-1.5 py-0.5 rounded backdrop-blur-sm">
+                Render {idx + 1}
+              </div>
+            </div>
+          ))}
+
+          {renders.length < MAX_RENDERS && (
+            uploadingRender ? (
+              <div className="aspect-video rounded-lg border-2 border-dashed border-brand-500/40 bg-brand-500/5 flex flex-col items-center justify-center gap-2">
+                <Loader2 size={20} className="text-brand-400 animate-spin" />
+                <span className="text-xs text-brand-400">Subiendo...</span>
+              </div>
+            ) : (
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="aspect-video rounded-lg border-2 border-dashed border-[var(--border)] hover:border-brand-500/50 hover:bg-brand-500/5 transition-all flex flex-col items-center justify-center gap-2 cursor-pointer group"
+              >
+                <ImagePlus size={20} className="text-gray-600 group-hover:text-brand-400 transition-colors" />
+                <span className="text-xs text-gray-600 group-hover:text-brand-400 transition-colors">Agregar render</span>
+              </button>
+            )
+          )}
+
+          {Array.from({ length: Math.max(0, MAX_RENDERS - renders.length - 1) }).map((_, i) => (
+            <div key={`ph-${i}`} className="aspect-video rounded-lg border border-dashed border-[var(--border-s)] flex items-center justify-center opacity-30">
+              <ImagePlus size={16} className="text-gray-600" />
+            </div>
+          ))}
+        </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          className="hidden"
+          onChange={handleRenderUpload}
+        />
+      </div>
+
+      {/* Lightbox */}
+      {lightboxImg && (
+        <div
+          className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+          onClick={() => setLightboxImg(null)}
+        >
+          <button className="absolute top-4 right-4 p-2 text-white/70 hover:text-white cursor-pointer" onClick={() => setLightboxImg(null)}>
+            <X size={22} />
+          </button>
+          <img
+            src={lightboxImg}
+            alt="Render ampliado"
+            className="max-w-full max-h-full rounded-xl shadow-2xl object-contain"
+            onClick={e => e.stopPropagation()}
+          />
+        </div>
+      )}
 
       <Dialog open={showEdit} onClose={() => setShowEdit(false)} title="Editar Proyecto" size="lg">
         <ProyectoForm

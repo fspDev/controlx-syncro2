@@ -3,7 +3,6 @@ import {
   doc,
   getDocs,
   setDoc,
-  updateDoc,
   deleteDoc,
   getDoc,
   query,
@@ -106,6 +105,7 @@ function proyectoFromFirestore(id: string, data: Record<string, unknown>): Proye
     importe: Number(data.importe ?? 0),
     notas: (data.notes as string) || (data.notas as string) || '',
     tareas: tareasFromFirestore(data.tareas),
+    renders: Array.isArray(data.renders) ? (data.renders as string[]).filter(r => typeof r === 'string' && r.startsWith('https://')) : [],
     createdAt: tsToIso(data.createdAt) || new Date().toISOString(),
     updatedAt: tsToIso(data.updatedAt) || new Date().toISOString(),
   }
@@ -320,11 +320,6 @@ export async function deleteClienteDoc(id: string): Promise<void> {
 }
 
 // ─── Renders (Firebase Storage) ──────────────────────────────────────────────
-
-export async function saveEventoRenders(eventoId: string, renders: string[]): Promise<void> {
-  const urls = renders.filter(r => r.startsWith('https://'))
-  await updateDoc(doc(db, 'events', eventoId), { renders: urls, updatedAt: new Date().toISOString() })
-}
 
 export async function uploadRender(eventoId: string, file: File): Promise<string> {
   const ext = file.name.split('.').pop() || 'jpg'

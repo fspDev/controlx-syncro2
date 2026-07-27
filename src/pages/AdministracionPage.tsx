@@ -239,7 +239,7 @@ function ProyectoDetailPanel({ evento, proyecto, cliente, usuarios, registro, ge
 
   const responsable = usuarios.find(u => u.id === proyecto.responsableId)
   const tareasDone = proyecto.tareas.filter(t => t.completada).length
-  const renders = evento.renders || []
+  const renders = proyecto.renders || []
 
   const formatDate = (iso?: string) => {
     if (!iso) return null

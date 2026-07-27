@@ -120,13 +120,14 @@ export function DashboardPage() {
           ) : (
             proximos.map(e => {
               const tareasPend = e.proyectos.reduce((s, p) => s + p.tareas.filter(t => !t.completada).length, 0)
+              const thumb = e.proyectos.flatMap(p => p.renders || [])[0]
               return (
                 <Card key={e.id} className="p-4 cursor-pointer hover:border-[var(--border-h)] transition-colors" onClick={() => navigate(`/proyectos/${e.id}`)}>
                   <div className="flex items-start gap-3">
                     {/* Render thumbnail */}
-                    {e.renders && e.renders.length > 0 ? (
+                    {thumb ? (
                       <div className="w-20 h-14 rounded-lg overflow-hidden shrink-0 bg-[var(--bg)] border border-[var(--border-s)]">
-                        <img src={e.renders[0]} alt="render" className="w-full h-full object-cover" />
+                        <img src={thumb} alt="render" className="w-full h-full object-cover" />
                       </div>
                     ) : (
                       <div className="w-20 h-14 rounded-lg shrink-0 bg-[var(--bg)] border border-[var(--border-s)] flex items-center justify-center">

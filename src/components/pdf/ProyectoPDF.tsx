@@ -242,7 +242,7 @@ interface Props {
 // ─── Document ───────────────────────────────────────────────────────────────
 
 export function ProyectoPDF({ evento, proyecto, cliente, responsable, usuarios }: Props) {
-  const renders = evento.renders || []
+  const renders = proyecto.renders || []
   const tareas = proyecto.tareas || []
   const now = new Date().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 

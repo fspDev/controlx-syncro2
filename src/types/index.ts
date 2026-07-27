@@ -32,6 +32,7 @@ export interface Proyecto {
   importe: number
   notas: string
   tareas: Tarea[]
+  renders?: string[]        // hasta 3 URLs de Storage, por proyecto
   createdAt: string
   updatedAt: string
 }
