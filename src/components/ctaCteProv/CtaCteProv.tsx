@@ -11,14 +11,21 @@ interface CtaCteProvProps {
 
 // Anchos fijos por columna — sin esto una descripción larga en "Servicio"
 // ensancha su columna y desalinea la grilla respecto de las filas vecinas.
+// "servicio" no tiene ancho propio a propósito: con table-layout fixed, la
+// columna sin ancho especificado absorbe el espacio sobrante y la tabla
+// ocupa el ancho completo del contenedor en vez de dejar un hueco a la derecha.
 const COL_WIDTHS = {
-  proveedor: 160, servicio: 240, formaPago: 150, fecha: 120,
+  proveedor: 160, formaPago: 150, fecha: 120,
   aPagar: 130, pagado: 130, saldo: 130, estado: 36,
 }
+const COL_WIDTHS_TOTAL = Object.values(COL_WIDTHS).reduce((a, b) => a + b, 0)
 
 const inputBase = 'w-full bg-transparent border border-transparent rounded px-2 py-1.5 text-sm text-gray-200 ' +
   'hover:border-[var(--border)] focus:border-brand-500/50 focus:outline-none focus:ring-1 focus:ring-brand-500/20 ' +
-  'motion-safe:transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
+  'motion-safe:transition-colors disabled:opacity-50 disabled:cursor-not-allowed ' +
+  // El menú desplegable nativo de <option> usa fondo blanco del sistema operativo;
+  // sin esto hereda el texto gris claro del select y queda ilegible.
+  '[&>option]:bg-white [&>option]:text-black'
 
 export function CtaCteProv({ readOnly = false }: CtaCteProvProps) {
   const {
@@ -35,12 +42,13 @@ export function CtaCteProv({ readOnly = false }: CtaCteProvProps) {
 
   const [nuevoProveedor, setNuevoProveedor] = useState('')
   const [agregandoProveedor, setAgregandoProveedor] = useState(false)
+  const [showAltaProveedor, setShowAltaProveedor] = useState(false)
 
   const handleAgregarProveedor = async () => {
     setAgregandoProveedor(true)
     const ok = await agregarProveedor(nuevoProveedor)
     setAgregandoProveedor(false)
-    if (ok) setNuevoProveedor('')
+    if (ok) { setNuevoProveedor(''); setShowAltaProveedor(false) }
   }
 
   if (loading) {
@@ -100,29 +108,38 @@ export function CtaCteProv({ readOnly = false }: CtaCteProvProps) {
         </div>
       </div>
 
-      {/* Alta de proveedor */}
+      {/* Alta de proveedor — colapsada por default, es una tarea de configuración ocasional, no el foco de la pantalla */}
       {!readOnly && (
-        <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4">
-          <div className="flex gap-2 items-start">
-            <div className="flex-1">
-              <input
-                value={nuevoProveedor}
-                onChange={e => { setNuevoProveedor(e.target.value); if (errorProveedor) setErrorProveedor(null) }}
-                onKeyDown={e => e.key === 'Enter' && handleAgregarProveedor()}
-                placeholder="Nombre del nuevo proveedor..."
-                aria-label="Nombre del nuevo proveedor"
-                className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-gray-200 placeholder:text-gray-600 focus:border-brand-500/50 focus:outline-none transition-all"
-              />
-              {errorProveedor && <p className="text-xs text-red-400 mt-1.5">{errorProveedor}</p>}
+        <div>
+          <button
+            onClick={() => setShowAltaProveedor(o => !o)}
+            className="flex items-center gap-1 text-xs text-gray-500 hover:text-brand-400 cursor-pointer transition-colors"
+          >
+            <Plus size={12} /> {showAltaProveedor ? 'Cancelar' : 'Agregar proveedor'}
+          </button>
+          {showAltaProveedor && (
+            <div className="mt-2 flex gap-2 items-start max-w-md">
+              <div className="flex-1">
+                <input
+                  autoFocus
+                  value={nuevoProveedor}
+                  onChange={e => { setNuevoProveedor(e.target.value); if (errorProveedor) setErrorProveedor(null) }}
+                  onKeyDown={e => e.key === 'Enter' && handleAgregarProveedor()}
+                  placeholder="Nombre del nuevo proveedor..."
+                  aria-label="Nombre del nuevo proveedor"
+                  className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-3 py-1.5 text-sm text-gray-200 placeholder:text-gray-600 focus:border-brand-500/50 focus:outline-none transition-all"
+                />
+                {errorProveedor && <p className="text-xs text-red-400 mt-1.5">{errorProveedor}</p>}
+              </div>
+              <button
+                onClick={handleAgregarProveedor}
+                disabled={!nuevoProveedor.trim() || agregandoProveedor}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-500 hover:bg-brand-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors cursor-pointer shrink-0"
+              >
+                <Plus size={13} /> Agregar
+              </button>
             </div>
-            <button
-              onClick={handleAgregarProveedor}
-              disabled={!nuevoProveedor.trim() || agregandoProveedor}
-              className="flex items-center gap-1.5 px-3 py-2 bg-brand-500 hover:bg-brand-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors cursor-pointer shrink-0"
-            >
-              <Plus size={14} /> Agregar proveedor
-            </button>
-          </div>
+          )}
         </div>
       )}
 
@@ -134,7 +151,7 @@ export function CtaCteProv({ readOnly = false }: CtaCteProvProps) {
             id="filtro-proveedor"
             value={filtros.proveedorId}
             onChange={e => setFiltros(f => ({ ...f, proveedorId: e.target.value }))}
-            className="bg-[var(--bg)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-sm text-gray-300 focus:outline-none cursor-pointer"
+            className="bg-[var(--bg)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-sm text-gray-300 focus:outline-none cursor-pointer [&>option]:bg-white [&>option]:text-black"
           >
             <option value="">Todos los proveedores</option>
             {proveedores.map(p => <option key={p.id} value={p.id}>{p.nombre}{!p.activo ? ' (dado de baja)' : ''}</option>)}
@@ -158,7 +175,7 @@ export function CtaCteProv({ readOnly = false }: CtaCteProvProps) {
             id="filtro-forma-pago"
             value={filtros.formaPago}
             onChange={e => setFiltros(f => ({ ...f, formaPago: e.target.value as FormaPagoProv | '' }))}
-            className="bg-[var(--bg)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-sm text-gray-300 focus:outline-none cursor-pointer"
+            className="bg-[var(--bg)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-sm text-gray-300 focus:outline-none cursor-pointer [&>option]:bg-white [&>option]:text-black"
           >
             <option value="">Todas</option>
             {FORMAS_PAGO_PROV.map(f => <option key={f} value={f}>{f}</option>)}
@@ -214,9 +231,16 @@ export function CtaCteProv({ readOnly = false }: CtaCteProvProps) {
       ) : (
         <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl overflow-hidden">
           <div className="overflow-x-auto max-h-[70vh] overflow-y-auto">
-            <table className="border-collapse" style={{ tableLayout: 'fixed', width: Object.values(COL_WIDTHS).reduce((a, b) => a + b, 0) }}>
+            <table className="border-collapse w-full" style={{ tableLayout: 'fixed', minWidth: COL_WIDTHS_TOTAL }}>
               <colgroup>
-                {Object.values(COL_WIDTHS).map((w, i) => <col key={i} style={{ width: w }} />)}
+                <col style={{ width: COL_WIDTHS.proveedor }} />
+                <col /* servicio: sin ancho fijo, absorbe el espacio sobrante */ />
+                <col style={{ width: COL_WIDTHS.formaPago }} />
+                <col style={{ width: COL_WIDTHS.fecha }} />
+                <col style={{ width: COL_WIDTHS.aPagar }} />
+                <col style={{ width: COL_WIDTHS.pagado }} />
+                <col style={{ width: COL_WIDTHS.saldo }} />
+                <col style={{ width: COL_WIDTHS.estado }} />
               </colgroup>
               <thead>
                 <tr className="bg-[var(--surface-2)]">
