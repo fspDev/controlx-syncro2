@@ -3,7 +3,7 @@ import { useAppStore } from '@/store/useAppStore'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, FolderKanban, Calendar, Users, Briefcase,
-  ChevronLeft, ChevronRight, LogOut, Shield, Sun, Moon, Monitor, CheckSquare, Wallet
+  ChevronLeft, ChevronRight, LogOut, Shield, Sun, Moon, Monitor, CheckSquare, Wallet, Receipt
 } from 'lucide-react'
 
 const NAV_ITEMS = [
@@ -60,6 +60,24 @@ export function Sidebar() {
           >
             <Wallet size={17} className="shrink-0" />
             {sidebarOpen && <span>Administración</span>}
+          </NavLink>
+        )}
+
+        {currentUser?.permisos?.ctaCteProv === true && (
+          <NavLink
+            to="/cta-cte-prov"
+            onClick={() => { if (window.innerWidth < 1024) setSidebarOpen(false) }}
+            className={({ isActive }) => cn(
+              'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-150',
+              isActive
+                ? 'bg-brand-500/15 text-brand-400 font-medium'
+                : 'text-gray-500 hover:text-gray-200 hover:bg-[var(--surface-2)]',
+              !sidebarOpen && 'lg:justify-center lg:px-0'
+            )}
+            title={!sidebarOpen ? 'Cta Cte Proveedores' : undefined}
+          >
+            <Receipt size={17} className="shrink-0" />
+            {sidebarOpen && <span>Cta Cte Proveedores</span>}
           </NavLink>
         )}
 

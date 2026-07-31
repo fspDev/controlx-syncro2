@@ -13,6 +13,7 @@ import { ClienteDetailPage } from '@/pages/ClienteDetailPage'
 import { TrabajosPage } from '@/pages/TrabajosPage'
 import { AdminPage } from '@/pages/AdminPage'
 import { AdministracionPage } from '@/pages/AdministracionPage'
+import { CtaCteProvPage } from '@/pages/CtaCteProvPage'
 import { PlanillaPage } from '@/pages/PlanillaPage'
 import { MisTareasPage } from '@/pages/MisTareasPage'
 
@@ -64,6 +65,7 @@ export default function App() {
             <Route path="/trabajos" element={<TrabajosPage />} />
             <Route path="/admin" element={<AdminPage />} />
             <Route path="/administracion" element={<AdministracionPage />} />
+            <Route path="/cta-cte-prov" element={<CtaCteProvPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>

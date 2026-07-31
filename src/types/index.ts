@@ -54,6 +54,10 @@ export interface Evento {
   createdBy: string
 }
 
+export interface PermisosUsuario {
+  ctaCteProv: boolean
+}
+
 export interface Usuario {
   id: string
   username: string
@@ -61,6 +65,7 @@ export interface Usuario {
   rol: UserRol
   createdAt: string
   horaRecordatorio?: number  // hora del día (0-23), default 9
+  permisos?: PermisosUsuario
 }
 
 // ─── Planilla Gráfica ────────────────────────────────────────────────────────
@@ -177,4 +182,32 @@ export interface RegistroAdmin {
   pagado: boolean
   facturado: boolean
   updatedAt: string
+}
+
+// ─── Cta Cte Proveedores ─────────────────────────────────────────────────────
+
+// Fuente única de las formas de pago de la cuenta corriente. El tipo se deriva
+// de la constante: agregar una opción se hace en un solo lugar.
+// Ojo: es un set distinto al de `MedioPago` (que usa Trabajos Externos y
+// Administración), por eso no se reutiliza aquel.
+export const FORMAS_PAGO_PROV = ['Transferencia', 'Echeq', 'Efectivo', 'Cheque físico', 'Canje'] as const
+export type FormaPagoProv = typeof FORMAS_PAGO_PROV[number]
+
+export interface Proveedor {
+  id: string
+  nombre: string
+  activo: boolean        // baja lógica: nunca se borra, los movimientos quedarían huérfanos
+  creadoEn: number
+}
+
+export interface MovimientoProveedor {
+  id: string
+  proveedorId: string
+  servicio: string
+  formaPago: FormaPagoProv | ''
+  fecha: string          // YYYY-MM-DD — string, no Timestamp: ordena lexicográfico = cronológico y evita el corrimiento de día por zona horaria
+  aPagar: number         // lo que el proveedor prestó y se le debe
+  pagado: number         // lo que se le pagó (movimiento independiente, fila aparte)
+  creadoEn: number
+  actualizadoEn: number
 }

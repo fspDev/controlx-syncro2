@@ -265,7 +265,7 @@ export const useAppStore = create<AppState>()(
         // para no perder la sesión del admin que está creando el usuario)
         const cred = await createUserWithEmailAndPassword(secondaryAuth, email, data.password)
         const id = cred.user.uid
-        const u: Usuario = { id, username, displayName: data.displayName, rol: data.rol, createdAt: new Date().toISOString() }
+        const u: Usuario = { id, username, displayName: data.displayName, rol: data.rol, createdAt: new Date().toISOString(), permisos: data.permisos }
         await saveUsuario(u)
         await signOutSecondary(secondaryAuth)
         set(s => ({ usuarios: [...s.usuarios, u] }))

@@ -20,6 +20,53 @@ export function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(amount)
 }
 
+// ─── Cta Cte Proveedores: formato de montos y fechas ─────────────────────────
+
+/** Descarta todo lo que no sea dígito. Los montos son enteros, sin decimales. */
+export function soloDigitos(valor: string): string {
+  return valor.replace(/\D/g, '')
+}
+
+/** Convierte lo tipeado a entero. Cadena vacía o sin dígitos → 0. */
+export function montoDesdeDigitos(valor: string): number {
+  const digitos = soloDigitos(valor)
+  return digitos ? parseInt(digitos, 10) : 0
+}
+
+/**
+ * Monto para mostrar en la grilla: `$ 40.000`.
+ * Cero se muestra como celda vacía y nunca se emite signo negativo — el tipo de
+ * movimiento se codifica por color (a pagar rojo / pagado verde), no por signo.
+ */
+export function formatMontoProv(monto: number): string {
+  if (!monto) return ''
+  return formatCurrency(Math.abs(Math.trunc(monto)))
+}
+
+/**
+ * Fecha de hoy como `YYYY-MM-DD` tomando los componentes locales.
+ * `new Date().toISOString()` daría la fecha en UTC: pasadas las 21 h en
+ * Argentina (UTC-3) devolvería el día siguiente.
+ */
+export function hoyISO(): string {
+  const d = new Date()
+  const mes = String(d.getMonth() + 1).padStart(2, '0')
+  const dia = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${mes}-${dia}`
+}
+
+/**
+ * `YYYY-MM-DD` → `dd/mm/aa` partiendo el string, sin construir un Date.
+ * `new Date('2026-07-31')` se interpreta como medianoche UTC y en Argentina
+ * retrocede al día 30; por eso acá no se parsea.
+ */
+export function formatFechaISO(iso?: string): string {
+  if (!iso) return '—'
+  const [anio, mes, dia] = iso.split('-')
+  if (!anio || !mes || !dia) return iso
+  return `${dia}/${mes}/${anio.slice(2)}`
+}
+
 const _ESTADO_COLORS: Record<EventoEstado, { bg: string; text: string; dot: string }> = {
   Negociacion: { bg: 'bg-amber-500/15', text: 'text-amber-400', dot: 'bg-amber-400' },
   Confirmado:  { bg: 'bg-blue-500/15',  text: 'text-blue-400',  dot: 'bg-blue-400' },

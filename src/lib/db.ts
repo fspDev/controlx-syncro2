@@ -13,7 +13,7 @@ import {
 } from 'firebase/firestore'
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 import { db, storage } from '@/lib/firebase'
-import type { Evento, Proyecto, Tarea, TrabajoExterno, Usuario, Cliente, TareaUsuario, RegistroAdmin, MedioPago } from '@/types'
+import type { Evento, Proyecto, Tarea, TrabajoExterno, Usuario, Cliente, TareaUsuario, RegistroAdmin, MedioPago, Proveedor, MovimientoProveedor } from '@/types'
 import type { TareaPlantilla } from '@/store/useAppStore'
 import { genId, applyAutoFinalizado } from '@/lib/utils'
 
@@ -82,6 +82,9 @@ export function userFromFirestore(id: string, data: Record<string, unknown>): Us
     rol: normalizeRol(data.role || data.rol),
     createdAt: tsToIso(data.createdAt) || new Date().toISOString(),
     horaRecordatorio: typeof data.horaRecordatorio === 'number' ? data.horaRecordatorio : undefined,
+    permisos: data.permisos && typeof data.permisos === 'object'
+      ? { ctaCteProv: Boolean((data.permisos as Record<string, unknown>).ctaCteProv) }
+      : undefined,
   }
 }
 
@@ -291,13 +294,14 @@ export async function getUsuarioByUid(uid: string): Promise<Usuario | null> {
 }
 
 export async function saveUsuario(u: Usuario): Promise<void> {
-  await setDoc(doc(db, 'users', u.id), {
+  await setDoc(doc(db, 'users', u.id), stripUndefined({
     username: u.username,
     displayName: u.displayName || '',
     role: u.rol,
     rol: u.rol,
     createdAt: u.createdAt,
-  }, { merge: true })
+    permisos: u.permisos,
+  }), { merge: true })
 }
 
 export async function deleteUsuarioDoc(id: string): Promise<void> {
@@ -417,4 +421,70 @@ export async function saveTareaUsuario(t: TareaUsuario): Promise<void> {
 
 export async function deleteTareaUsuarioDoc(_userId: string, tareaId: string): Promise<void> {
   await deleteDoc(doc(db, 'tareas_usuario', tareaId))
+}
+
+// ─── Cta Cte Proveedores ─────────────────────────────────────────────────────
+
+function proveedorFromFirestore(id: string, data: Record<string, unknown>): Proveedor {
+  return {
+    id,
+    nombre: (data.nombre as string) || '',
+    activo: data.activo !== false, // default true para docs viejos sin el campo
+    creadoEn: typeof data.creadoEn === 'number' ? data.creadoEn : Date.now(),
+  }
+}
+
+function movimientoProveedorFromFirestore(id: string, data: Record<string, unknown>): MovimientoProveedor {
+  return {
+    id,
+    proveedorId: (data.proveedorId as string) || '',
+    servicio: (data.servicio as string) || '',
+    formaPago: (data.formaPago as MovimientoProveedor['formaPago']) || '',
+    fecha: (data.fecha as string) || '',
+    aPagar: typeof data.aPagar === 'number' ? data.aPagar : 0,
+    pagado: typeof data.pagado === 'number' ? data.pagado : 0,
+    creadoEn: typeof data.creadoEn === 'number' ? data.creadoEn : Date.now(),
+    actualizadoEn: typeof data.actualizadoEn === 'number' ? data.actualizadoEn : Date.now(),
+  }
+}
+
+export function subscribeProveedores(cb: (proveedores: Proveedor[]) => void, onError?: (err: Error) => void): Unsubscribe {
+  return onSnapshot(collection(db, 'proveedores'), snap => {
+    cb(snap.docs.map(d => proveedorFromFirestore(d.id, d.data() as Record<string, unknown>)))
+  }, err => { console.error('[onSnapshot proveedores]', err); onError?.(err) })
+}
+
+export async function addProveedorDoc(id: string, nombre: string): Promise<void> {
+  await setDoc(doc(db, 'proveedores', id), { nombre, activo: true, creadoEn: Date.now() })
+}
+
+export async function bajaProveedorDoc(id: string): Promise<void> {
+  await setDoc(doc(db, 'proveedores', id), { activo: false }, { merge: true })
+}
+
+export function subscribeMovimientosProveedores(cb: (movimientos: MovimientoProveedor[]) => void, onError?: (err: Error) => void): Unsubscribe {
+  // Orden pedido: fecha ascendente, creadoEn como desempate — se ordena en el
+  // cliente (ver useCtaCteProv) para no depender de que el índice compuesto
+  // esté desplegado antes de que la grilla muestre algo.
+  return onSnapshot(collection(db, 'movimientos_proveedores'), snap => {
+    cb(snap.docs.map(d => movimientoProveedorFromFirestore(d.id, d.data() as Record<string, unknown>)))
+  }, err => { console.error('[onSnapshot movimientos_proveedores]', err); onError?.(err) })
+}
+
+/**
+ * El id se genera del lado del llamador (no acá) para que el caller pueda
+ * insertar la fila de forma optimista en su estado local con el mismo id
+ * que después persiste — evita que la fila "salte" cuando llega el snapshot.
+ */
+export async function addMovimientoProveedorDoc(id: string, data: Omit<MovimientoProveedor, 'id' | 'creadoEn' | 'actualizadoEn'>): Promise<void> {
+  const now = Date.now()
+  await setDoc(doc(db, 'movimientos_proveedores', id), { ...data, creadoEn: now, actualizadoEn: now })
+}
+
+export async function updateMovimientoProveedorDoc(id: string, data: Partial<Omit<MovimientoProveedor, 'id' | 'creadoEn'>>): Promise<void> {
+  await setDoc(doc(db, 'movimientos_proveedores', id), stripUndefined({ ...data, actualizadoEn: Date.now() }), { merge: true })
+}
+
+export async function deleteMovimientoProveedorDoc(id: string): Promise<void> {
+  await deleteDoc(doc(db, 'movimientos_proveedores', id))
 }

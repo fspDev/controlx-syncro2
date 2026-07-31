@@ -20,8 +20,8 @@ const ROL_COLORS: Record<UserRol, string> = {
   user: 'bg-blue-500/15 text-blue-400',
 }
 
-interface FormState { username: string; displayName: string; rol: UserRol; password: string; confirmPass: string }
-const EMPTY: FormState = { username: '', displayName: '', rol: 'user', password: '', confirmPass: '' }
+interface FormState { username: string; displayName: string; rol: UserRol; password: string; confirmPass: string; ctaCteProv: boolean }
+const EMPTY: FormState = { username: '', displayName: '', rol: 'user', password: '', confirmPass: '', ctaCteProv: false }
 
 export function AdminPage() {
   const { currentUser, usuarios, addUsuario, updateUsuario, deleteUsuario,
@@ -46,7 +46,7 @@ export function AdminPage() {
 
   const openNew = () => { setForm(EMPTY); setEditId(null); setError(''); setShowForm(true) }
   const openEdit = (u: Usuario) => {
-    setForm({ username: u.username, displayName: u.displayName||'', rol: u.rol, password: '', confirmPass: '' })
+    setForm({ username: u.username, displayName: u.displayName||'', rol: u.rol, password: '', confirmPass: '', ctaCteProv: u.permisos?.ctaCteProv === true })
     setEditId(u.id); setError(''); setShowForm(true)
   }
 
@@ -71,10 +71,10 @@ export function AdminPage() {
     setSubmitting(true)
     try {
       if (editId) {
-        updateUsuario(editId, { username: form.username, displayName: form.displayName, rol: form.rol })
+        updateUsuario(editId, { username: form.username, displayName: form.displayName, rol: form.rol, permisos: { ctaCteProv: form.ctaCteProv } })
         setShowForm(false)
       } else {
-        await addUsuario({ username: form.username, displayName: form.displayName, rol: form.rol, password: form.password })
+        await addUsuario({ username: form.username, displayName: form.displayName, rol: form.rol, password: form.password, permisos: { ctaCteProv: form.ctaCteProv } })
         setShowForm(false)
       }
     } catch (err: unknown) {
@@ -288,6 +288,16 @@ export function AdminPage() {
           <Input label="Usuario *" value={form.username} onChange={e => set('username', e.target.value)} placeholder="nombre.usuario" disabled={!!editId} />
           <Input label="Nombre para mostrar" value={form.displayName} onChange={e => set('displayName', e.target.value)} placeholder="Nombre Apellido" />
           <Select label="Rol" value={form.rol} onChange={e => set('rol', e.target.value as UserRol)} options={ROL_OPTS} />
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="ctaCteProv"
+              checked={form.ctaCteProv}
+              onChange={e => setForm(prev => ({ ...prev, ctaCteProv: e.target.checked }))}
+              className="accent-brand-500 cursor-pointer"
+            />
+            <label htmlFor="ctaCteProv" className="text-sm text-gray-400 cursor-pointer">Cuenta corriente de proveedores</label>
+          </div>
           {!editId && (
             <>
               <Input label="Contraseña *" type="password" value={form.password} onChange={e => set('password', e.target.value)} placeholder="••••••••" />

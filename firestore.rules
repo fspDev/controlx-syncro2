@@ -6,14 +6,48 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Defensivo: `get(...).data.rol` sin default revienta si el doc del
+    // usuario todavía no tiene `rol` (p.ej. justo después de crearlo) y
+    // deniega el acceso incluso a un admin. `.get('rol', '')` no explota.
     function isAdmin() {
-      return isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rol in ['admin', 'administrativo'];
+      return isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('rol', '') in ['admin', 'administrativo'];
     }
 
-    // Usuarios — cada uno lee y escribe su propio documento
+    function usuario() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    // Mismo motivo que isAdmin(): `.get('permisos', {})` con default evita que
+    // un usuario cuyo doc todavía no tiene el objeto `permisos` quede
+    // bloqueado por una excepción en vez de simplemente no tener el permiso.
+    function tieneCtaCteProv() {
+      return isAuth() && usuario().get('permisos', {}).get('ctaCteProv', false) == true;
+    }
+
+    // Validación de un movimiento de la cta cte de proveedores: montos
+    // numéricos no negativos, fecha como string YYYY-MM-DD, largo máximo de
+    // servicio, y que el proveedor referenciado exista (o esté sin asignar
+    // todavía — una fila recién agregada puede no tener proveedor elegido).
+    function movimientoProveedorValido() {
+      let d = request.resource.data;
+      return d.servicio is string && d.servicio.size() <= 300
+        && d.fecha is string && d.fecha.size() == 10
+        && d.aPagar is number && d.aPagar >= 0
+        && d.pagado is number && d.pagado >= 0
+        && d.proveedorId is string
+        && (d.proveedorId == '' || exists(/databases/$(database)/documents/proveedores/$(d.proveedorId)));
+    }
+
+    // Usuarios — el admin gestiona todo el documento (incluido `permisos`,
+    // que es lo que habilita esta y otras features desde el panel). Un
+    // usuario NO puede escribir su propio documento salvo dos campos que la
+    // app necesita tocar sola (token de push, hora de recordatorio): si
+    // pudiera tocar cualquier campo, se auto-tildaría `permisos.ctaCteProv`.
     match /users/{userId} {
       allow read: if isAuth();
-      allow write: if isAuth() && request.auth.uid == userId;
+      allow write: if isAdmin();
+      allow update: if isAuth() && request.auth.uid == userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fcmTokens', 'horaRecordatorio']);
     }
 
     // Eventos / proyectos
@@ -38,6 +72,30 @@ service cloud.firestore {
     match /registros_admin/{regId} {
       allow read: if isAdmin();
       allow write: if isAdmin();
+    }
+
+    // Cta Cte Proveedores — el gate real es del lado del servidor: la
+    // casilla en el cliente es solo UI, cualquiera con la consola del
+    // navegador abierta podría montar el componente igual.
+    match /proveedores/{provId} {
+      allow read: if tieneCtaCteProv();
+      allow create, update: if tieneCtaCteProv()
+        && request.resource.data.nombre is string
+        && request.resource.data.nombre.size() > 0
+        && request.resource.data.nombre.size() <= 120
+        && request.resource.data.activo is bool;
+      // Baja lógica (activo=false) la hace cualquiera con el permiso — el
+      // borrado real del documento queda restringido a admin porque
+      // dejaría movimientos históricos apuntando a un proveedorId huérfano.
+      allow delete: if isAdmin();
+    }
+
+    match /movimientos_proveedores/{movId} {
+      allow read: if tieneCtaCteProv();
+      allow create, update: if tieneCtaCteProv() && movimientoProveedorValido();
+      // Sin UI de borrado hoy; se restringe a admin por ser datos financieros
+      // históricos, mismo criterio que el borrado de proveedores.
+      allow delete: if isAdmin();
     }
 
     // Tareas de usuario — el dueño puede escribir; dueño y compartidos pueden leer
