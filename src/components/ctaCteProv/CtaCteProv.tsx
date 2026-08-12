@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { cn, formatMontoProv, soloDigitos, montoDesdeDigitos, formatCurrency } from '@/lib/utils'
+import { cn, formatMontoProv, formatMiles, soloDigitos, montoDesdeDigitos, formatCurrency } from '@/lib/utils'
 import { FORMAS_PAGO_PROV } from '@/types'
 import type { FormaPagoProv, Proveedor } from '@/types'
 import { useAppStore } from '@/store/useAppStore'
@@ -124,23 +124,6 @@ export function CtaCteProv({ readOnly = false }: CtaCteProvProps) {
         </div>
       ) : (
         <>
-      {/* Banner de contexto — el requisito más importante: qué significa "saldo" ahora mismo */}
-      <div
-        role="status"
-        className={cn(
-          'text-sm rounded-xl px-4 py-3 border',
-          proveedorFiltrado
-            ? 'bg-amber-500/10 border-amber-500/25 text-amber-200'
-            : 'bg-blue-500/10 border-blue-500/25 text-blue-200'
-        )}
-      >
-        {proveedorFiltrado ? (
-          <>Mostrando la cuenta corriente con <strong>{proveedorFiltrado.nombre}</strong> — el saldo de abajo es lo que la empresa le debe a este proveedor puntual, no el saldo general de la empresa.</>
-        ) : (
-          <>Mostrando la cuenta corriente general de la empresa (todos los proveedores). Filtrá por proveedor para ver su cuenta individual.</>
-        )}
-      </div>
-
       {/* Métricas de resumen */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4">
@@ -162,78 +145,84 @@ export function CtaCteProv({ readOnly = false }: CtaCteProvProps) {
       </div>
 
       {/* Filtros */}
-      <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4 flex flex-wrap items-end gap-3">
-        <div className="flex flex-col gap-1">
-          <label htmlFor="filtro-proveedor" className="text-xs text-gray-500">Proveedor</label>
-          <select
-            id="filtro-proveedor"
-            value={filtros.proveedorId}
-            onChange={e => setFiltros(f => ({ ...f, proveedorId: e.target.value }))}
-            className="bg-[var(--bg)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-sm text-gray-300 focus:outline-none cursor-pointer [&>option]:bg-white [&>option]:text-black"
-          >
-            <option value="">Todos los proveedores</option>
-            {proveedores.map(p => <option key={p.id} value={p.id}>{p.nombre}{!p.activo ? ' (dado de baja)' : ''}</option>)}
-          </select>
+      <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4 flex flex-col gap-3">
+        {/* Fila 1: campos */}
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex flex-col gap-1">
+            <label htmlFor="filtro-proveedor" className="text-xs text-gray-500">Proveedor</label>
+            <select
+              id="filtro-proveedor"
+              value={filtros.proveedorId}
+              onChange={e => setFiltros(f => ({ ...f, proveedorId: e.target.value }))}
+              className="bg-[var(--bg)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-sm text-gray-300 focus:outline-none cursor-pointer [&>option]:bg-white [&>option]:text-black"
+            >
+              <option value="">Todos los proveedores</option>
+              {proveedores.map(p => <option key={p.id} value={p.id}>{p.nombre}{!p.activo ? ' (dado de baja)' : ''}</option>)}
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label htmlFor="filtro-servicio" className="text-xs text-gray-500">Servicio contiene</label>
+            <input
+              id="filtro-servicio"
+              value={filtros.servicio}
+              onChange={e => setFiltros(f => ({ ...f, servicio: e.target.value }))}
+              placeholder="Buscar..."
+              className="bg-[var(--bg)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-sm text-gray-300 placeholder:text-gray-600 focus:outline-none w-40"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label htmlFor="filtro-forma-pago" className="text-xs text-gray-500">Forma de pago</label>
+            <select
+              id="filtro-forma-pago"
+              value={filtros.formaPago}
+              onChange={e => setFiltros(f => ({ ...f, formaPago: e.target.value as FormaPagoProv | '' }))}
+              className="bg-[var(--bg)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-sm text-gray-300 focus:outline-none cursor-pointer [&>option]:bg-white [&>option]:text-black"
+            >
+              <option value="">Todas</option>
+              {FORMAS_PAGO_PROV.map(f => <option key={f} value={f}>{f}</option>)}
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label htmlFor="filtro-desde" className="text-xs text-gray-500">Desde</label>
+            <input
+              id="filtro-desde" type="date"
+              value={filtros.fechaDesde}
+              onChange={e => setFiltros(f => ({ ...f, fechaDesde: e.target.value }))}
+              className="bg-[var(--bg)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-sm text-gray-300 focus:outline-none"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label htmlFor="filtro-hasta" className="text-xs text-gray-500">Hasta</label>
+            <input
+              id="filtro-hasta" type="date"
+              value={filtros.fechaHasta}
+              onChange={e => setFiltros(f => ({ ...f, fechaHasta: e.target.value }))}
+              className="bg-[var(--bg)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-sm text-gray-300 focus:outline-none"
+            />
+          </div>
         </div>
 
-        <div className="flex flex-col gap-1">
-          <label htmlFor="filtro-servicio" className="text-xs text-gray-500">Servicio contiene</label>
-          <input
-            id="filtro-servicio"
-            value={filtros.servicio}
-            onChange={e => setFiltros(f => ({ ...f, servicio: e.target.value }))}
-            placeholder="Buscar..."
-            className="bg-[var(--bg)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-sm text-gray-300 placeholder:text-gray-600 focus:outline-none w-40"
-          />
+        {/* Fila 2: casillas + limpiar, siempre juntas en la línea de abajo */}
+        <div className="flex flex-wrap items-center gap-4">
+          <label className="flex items-center gap-1.5 text-sm text-gray-400 cursor-pointer">
+            <input type="checkbox" checked={filtros.soloAPagar} onChange={e => setFiltros(f => ({ ...f, soloAPagar: e.target.checked }))} className="accent-brand-500 cursor-pointer" />
+            Solo "a pagar"
+          </label>
+          <label className="flex items-center gap-1.5 text-sm text-gray-400 cursor-pointer">
+            <input type="checkbox" checked={filtros.soloPagado} onChange={e => setFiltros(f => ({ ...f, soloPagado: e.target.checked }))} className="accent-brand-500 cursor-pointer" />
+            Solo "pagado"
+          </label>
+
+          {hayFiltrosActivos && (
+            <button onClick={limpiarFiltros} className="flex items-center gap-1 text-xs text-gray-500 hover:text-brand-400 cursor-pointer transition-colors ml-auto">
+              <X size={12} /> Limpiar filtros
+            </button>
+          )}
         </div>
-
-        <div className="flex flex-col gap-1">
-          <label htmlFor="filtro-forma-pago" className="text-xs text-gray-500">Forma de pago</label>
-          <select
-            id="filtro-forma-pago"
-            value={filtros.formaPago}
-            onChange={e => setFiltros(f => ({ ...f, formaPago: e.target.value as FormaPagoProv | '' }))}
-            className="bg-[var(--bg)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-sm text-gray-300 focus:outline-none cursor-pointer [&>option]:bg-white [&>option]:text-black"
-          >
-            <option value="">Todas</option>
-            {FORMAS_PAGO_PROV.map(f => <option key={f} value={f}>{f}</option>)}
-          </select>
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <label htmlFor="filtro-desde" className="text-xs text-gray-500">Desde</label>
-          <input
-            id="filtro-desde" type="date"
-            value={filtros.fechaDesde}
-            onChange={e => setFiltros(f => ({ ...f, fechaDesde: e.target.value }))}
-            className="bg-[var(--bg)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-sm text-gray-300 focus:outline-none"
-          />
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <label htmlFor="filtro-hasta" className="text-xs text-gray-500">Hasta</label>
-          <input
-            id="filtro-hasta" type="date"
-            value={filtros.fechaHasta}
-            onChange={e => setFiltros(f => ({ ...f, fechaHasta: e.target.value }))}
-            className="bg-[var(--bg)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-sm text-gray-300 focus:outline-none"
-          />
-        </div>
-
-        <label className="flex items-center gap-1.5 text-sm text-gray-400 cursor-pointer pb-1.5">
-          <input type="checkbox" checked={filtros.soloAPagar} onChange={e => setFiltros(f => ({ ...f, soloAPagar: e.target.checked }))} className="accent-brand-500 cursor-pointer" />
-          Solo "a pagar"
-        </label>
-        <label className="flex items-center gap-1.5 text-sm text-gray-400 cursor-pointer pb-1.5">
-          <input type="checkbox" checked={filtros.soloPagado} onChange={e => setFiltros(f => ({ ...f, soloPagado: e.target.checked }))} className="accent-brand-500 cursor-pointer" />
-          Solo "pagado"
-        </label>
-
-        {hayFiltrosActivos && (
-          <button onClick={limpiarFiltros} className="flex items-center gap-1 text-xs text-gray-500 hover:text-brand-400 cursor-pointer transition-colors pb-1.5 ml-auto">
-            <X size={12} /> Limpiar filtros
-          </button>
-        )}
       </div>
 
       {/* Grilla */}
@@ -443,7 +432,7 @@ function MontoInput({ value, onChange, colorClass, ariaLabel, readOnly }: {
       inputMode="numeric"
       aria-label={ariaLabel}
       readOnly={readOnly}
-      value={focused ? raw : formatMontoProv(value)}
+      value={focused ? (raw ? formatMiles(Number(raw)) : '') : formatMontoProv(value)}
       onFocus={e => { setFocused(true); setRaw(value ? String(value) : ''); e.target.select() }}
       onChange={e => {
         if (readOnly) return

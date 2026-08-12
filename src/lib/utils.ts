@@ -34,6 +34,15 @@ export function montoDesdeDigitos(valor: string): number {
 }
 
 /**
+ * Entero → texto con separador de miles pero SIN símbolo de moneda: `40.000`.
+ * Se usa mientras el campo está enfocado, para que los puntos vayan
+ * apareciendo a medida que se tipea.
+ */
+export function formatMiles(n: number): string {
+  return new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 }).format(n)
+}
+
+/**
  * Monto para mostrar en la grilla: `$ 40.000`.
  * Cero se muestra como celda vacía y nunca se emite signo negativo — el tipo de
  * movimiento se codifica por color (a pagar rojo / pagado verde), no por signo.
