@@ -208,6 +208,7 @@ export interface MovimientoProveedor {
   fecha: string          // YYYY-MM-DD — string, no Timestamp: ordena lexicográfico = cronológico y evita el corrimiento de día por zona horaria
   aPagar: number         // lo que el proveedor prestó y se le debe
   pagado: number         // lo que se le pagó (movimiento independiente, fila aparte)
+  creadoPor?: string     // uid del usuario que creó la fila (opcional: filas viejas no lo tienen)
   creadoEn: number
   actualizadoEn: number
 }

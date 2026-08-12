@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { cn, formatMontoProv, soloDigitos, montoDesdeDigitos, formatCurrency } from '@/lib/utils'
 import { FORMAS_PAGO_PROV } from '@/types'
 import type { FormaPagoProv, Proveedor } from '@/types'
-import { Plus, X, Loader2, AlertCircle } from 'lucide-react'
+import { useAppStore } from '@/store/useAppStore'
+import { Plus, X, Loader2, AlertCircle, Wallet } from 'lucide-react'
 import { useCtaCteProv, type EstadoFila, type MovimientoConSaldo } from './useCtaCteProv'
 
 interface CtaCteProvProps {
@@ -15,7 +16,7 @@ interface CtaCteProvProps {
 // columna sin ancho especificado absorbe el espacio sobrante y la tabla
 // ocupa el ancho completo del contenedor en vez de dejar un hueco a la derecha.
 const COL_WIDTHS = {
-  proveedor: 160, formaPago: 150, fecha: 120,
+  proveedor: 160, formaPago: 150, fecha: 120, creo: 120,
   aPagar: 130, pagado: 130, saldo: 130, estado: 36,
 }
 const COL_WIDTHS_TOTAL = Object.values(COL_WIDTHS).reduce((a, b) => a + b, 0)
@@ -40,6 +41,13 @@ export function CtaCteProv({ readOnly = false }: CtaCteProvProps) {
     hayMovimientos,
   } = useCtaCteProv()
 
+  const usuarios = useAppStore(s => s.usuarios)
+  const nombreCreador = (uid?: string) => {
+    if (!uid) return '—'
+    const u = usuarios.find(x => x.id === uid)
+    return u ? (u.displayName || u.username) : '—'
+  }
+
   const [nuevoProveedor, setNuevoProveedor] = useState('')
   const [agregandoProveedor, setAgregandoProveedor] = useState(false)
   const [showAltaProveedor, setShowAltaProveedor] = useState(false)
@@ -51,26 +59,69 @@ export function CtaCteProv({ readOnly = false }: CtaCteProvProps) {
     if (ok) { setNuevoProveedor(''); setShowAltaProveedor(false) }
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-16 text-gray-500 text-sm gap-2">
-        <Loader2 size={16} className="animate-spin" /> Cargando cuenta corriente...
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center gap-2 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
-        <AlertCircle size={15} className="shrink-0" /> {error}
-      </div>
-    )
-  }
-
   const saldoLabel = proveedorFiltrado ? `Saldo con ${proveedorFiltrado.nombre}` : 'Saldo'
 
   return (
     <div className="space-y-4">
+      {/* Header: título + acciones al lado */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          <Wallet size={20} className="text-brand-400" />
+          <h1 className="text-xl font-bold text-gray-100">Cuenta Corriente de Proveedores</h1>
+        </div>
+        {!readOnly && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={agregarFila}
+              className="flex items-center gap-1.5 px-3 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium rounded-lg transition-colors cursor-pointer"
+            >
+              <Plus size={15} /> Agregar movimiento
+            </button>
+            <button
+              onClick={() => setShowAltaProveedor(o => !o)}
+              className="flex items-center gap-1.5 px-3 py-2 bg-[var(--surface)] hover:bg-[var(--surface-h)] border border-[var(--border)] text-sm text-gray-300 font-medium rounded-lg transition-colors cursor-pointer"
+            >
+              <Plus size={15} /> Agregar proveedor
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Alta de proveedor — se despliega al tocar el botón del header */}
+      {!readOnly && showAltaProveedor && (
+        <div className="flex gap-2 items-start max-w-md">
+          <div className="flex-1">
+            <input
+              autoFocus
+              value={nuevoProveedor}
+              onChange={e => { setNuevoProveedor(e.target.value); if (errorProveedor) setErrorProveedor(null) }}
+              onKeyDown={e => e.key === 'Enter' && handleAgregarProveedor()}
+              placeholder="Nombre del nuevo proveedor..."
+              aria-label="Nombre del nuevo proveedor"
+              className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-3 py-1.5 text-sm text-gray-200 placeholder:text-gray-600 focus:border-brand-500/50 focus:outline-none transition-all"
+            />
+            {errorProveedor && <p className="text-xs text-red-400 mt-1.5">{errorProveedor}</p>}
+          </div>
+          <button
+            onClick={handleAgregarProveedor}
+            disabled={!nuevoProveedor.trim() || agregandoProveedor}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-500 hover:bg-brand-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors cursor-pointer shrink-0"
+          >
+            <Plus size={13} /> Agregar
+          </button>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex items-center justify-center py-16 text-gray-500 text-sm gap-2">
+          <Loader2 size={16} className="animate-spin" /> Cargando cuenta corriente...
+        </div>
+      ) : error ? (
+        <div className="flex items-center gap-2 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
+          <AlertCircle size={15} className="shrink-0" /> {error}
+        </div>
+      ) : (
+        <>
       {/* Banner de contexto — el requisito más importante: qué significa "saldo" ahora mismo */}
       <div
         role="status"
@@ -107,41 +158,6 @@ export function CtaCteProv({ readOnly = false }: CtaCteProvProps) {
           <p className="text-lg font-bold text-gray-200 tabular-nums">{totales.cantidad}</p>
         </div>
       </div>
-
-      {/* Alta de proveedor — colapsada por default, es una tarea de configuración ocasional, no el foco de la pantalla */}
-      {!readOnly && (
-        <div>
-          <button
-            onClick={() => setShowAltaProveedor(o => !o)}
-            className="flex items-center gap-1 text-xs text-gray-500 hover:text-brand-400 cursor-pointer transition-colors"
-          >
-            <Plus size={12} /> {showAltaProveedor ? 'Cancelar' : 'Agregar proveedor'}
-          </button>
-          {showAltaProveedor && (
-            <div className="mt-2 flex gap-2 items-start max-w-md">
-              <div className="flex-1">
-                <input
-                  autoFocus
-                  value={nuevoProveedor}
-                  onChange={e => { setNuevoProveedor(e.target.value); if (errorProveedor) setErrorProveedor(null) }}
-                  onKeyDown={e => e.key === 'Enter' && handleAgregarProveedor()}
-                  placeholder="Nombre del nuevo proveedor..."
-                  aria-label="Nombre del nuevo proveedor"
-                  className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-3 py-1.5 text-sm text-gray-200 placeholder:text-gray-600 focus:border-brand-500/50 focus:outline-none transition-all"
-                />
-                {errorProveedor && <p className="text-xs text-red-400 mt-1.5">{errorProveedor}</p>}
-              </div>
-              <button
-                onClick={handleAgregarProveedor}
-                disabled={!nuevoProveedor.trim() || agregandoProveedor}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-500 hover:bg-brand-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors cursor-pointer shrink-0"
-              >
-                <Plus size={13} /> Agregar
-              </button>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Filtros */}
       <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4 flex flex-wrap items-end gap-3">
@@ -221,7 +237,7 @@ export function CtaCteProv({ readOnly = false }: CtaCteProvProps) {
       {/* Grilla */}
       {!hayMovimientos ? (
         <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-12 text-center text-gray-500 text-sm">
-          Todavía no hay movimientos.{!readOnly && ' Agregá el primero con el botón de abajo.'}
+          Todavía no hay movimientos.{!readOnly && ' Agregá el primero con el botón de arriba.'}
         </div>
       ) : filasConSaldo.length === 0 ? (
         <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-12 text-center text-gray-500 text-sm">
@@ -237,6 +253,7 @@ export function CtaCteProv({ readOnly = false }: CtaCteProvProps) {
                 <col /* servicio: sin ancho fijo, absorbe el espacio sobrante */ />
                 <col style={{ width: COL_WIDTHS.formaPago }} />
                 <col style={{ width: COL_WIDTHS.fecha }} />
+                <col style={{ width: COL_WIDTHS.creo }} />
                 <col style={{ width: COL_WIDTHS.aPagar }} />
                 <col style={{ width: COL_WIDTHS.pagado }} />
                 <col style={{ width: COL_WIDTHS.saldo }} />
@@ -248,6 +265,7 @@ export function CtaCteProv({ readOnly = false }: CtaCteProvProps) {
                   <Th>Servicio</Th>
                   <Th>Forma de pago</Th>
                   <Th>Fecha</Th>
+                  <Th>Creó</Th>
                   <Th align="right">A pagar</Th>
                   <Th align="right">Pagado</Th>
                   <Th align="right">Saldo</Th>
@@ -261,6 +279,7 @@ export function CtaCteProv({ readOnly = false }: CtaCteProvProps) {
                     mov={mov}
                     proveedores={proveedoresActivos}
                     nombrePorProveedorId={nombrePorProveedorId}
+                    creadorNombre={nombreCreador(mov.creadoPor)}
                     estado={estadoFilas[mov.id]}
                     readOnly={readOnly}
                     onChange={patch => actualizarFila(mov.id, patch)}
@@ -269,7 +288,7 @@ export function CtaCteProv({ readOnly = false }: CtaCteProvProps) {
               </tbody>
               <tfoot>
                 <tr className="bg-[var(--surface-2)] font-semibold border-t border-[var(--border)]">
-                  <td className="sticky bottom-0 bg-[var(--surface-2)] px-2 py-2 text-xs text-gray-400" colSpan={4}>Totales</td>
+                  <td className="sticky bottom-0 bg-[var(--surface-2)] px-2 py-2 text-xs text-gray-400" colSpan={5}>Totales</td>
                   <td className="sticky bottom-0 bg-[var(--surface-2)] px-2 py-2 text-sm text-red-400 text-right tabular-nums">{formatCurrency(totales.aPagar)}</td>
                   <td className="sticky bottom-0 bg-[var(--surface-2)] px-2 py-2 text-sm text-emerald-400 text-right tabular-nums">{formatCurrency(totales.pagado)}</td>
                   <td className="sticky bottom-0 bg-[var(--surface-2)] px-2 py-2 text-sm text-gray-100 text-right tabular-nums">{formatCurrency(totales.saldo)}</td>
@@ -280,14 +299,7 @@ export function CtaCteProv({ readOnly = false }: CtaCteProvProps) {
           </div>
         </div>
       )}
-
-      {!readOnly && (
-        <button
-          onClick={agregarFila}
-          className="flex items-center gap-1.5 px-3 py-2 bg-[var(--surface)] hover:bg-[var(--surface-h)] border border-[var(--border)] text-sm text-gray-300 font-medium rounded-lg transition-colors cursor-pointer"
-        >
-          <Plus size={14} /> Agregar movimiento
-        </button>
+        </>
       )}
     </div>
   )
@@ -310,12 +322,13 @@ interface FilaProps {
   mov: MovimientoConSaldo
   proveedores: Proveedor[]
   nombrePorProveedorId: Map<string, string>
+  creadorNombre: string
   estado?: EstadoFila
   readOnly: boolean
   onChange: (patch: Partial<Pick<MovimientoConSaldo, 'proveedorId' | 'servicio' | 'formaPago' | 'fecha' | 'aPagar' | 'pagado'>>) => void
 }
 
-function Fila({ mov, proveedores, nombrePorProveedorId, estado, readOnly, onChange }: FilaProps) {
+function Fila({ mov, proveedores, nombrePorProveedorId, creadorNombre, estado, readOnly, onChange }: FilaProps) {
   // Si el proveedor asignado a esta fila fue dado de baja, se sigue mostrando
   // en su propio select (aunque ya no aparezca para filas nuevas) para no
   // "perder" silenciosamente a quién pertenece un movimiento histórico.
@@ -369,6 +382,9 @@ function Fila({ mov, proveedores, nombrePorProveedorId, estado, readOnly, onChan
           aria-label="Fecha"
           className={inputBase}
         />
+      </td>
+      <td className="px-2 py-1.5 text-sm text-gray-400 truncate" title={creadorNombre}>
+        {creadorNombre}
       </td>
       <td className="px-1 py-0.5">
         <MontoInput value={mov.aPagar} onChange={n => onChange({ aPagar: n })} colorClass="text-red-400" ariaLabel="A pagar" readOnly={readOnly} />

@@ -443,6 +443,7 @@ function movimientoProveedorFromFirestore(id: string, data: Record<string, unkno
     fecha: (data.fecha as string) || '',
     aPagar: typeof data.aPagar === 'number' ? data.aPagar : 0,
     pagado: typeof data.pagado === 'number' ? data.pagado : 0,
+    creadoPor: (data.creadoPor as string) || undefined,
     creadoEn: typeof data.creadoEn === 'number' ? data.creadoEn : Date.now(),
     actualizadoEn: typeof data.actualizadoEn === 'number' ? data.actualizadoEn : Date.now(),
   }
@@ -478,7 +479,7 @@ export function subscribeMovimientosProveedores(cb: (movimientos: MovimientoProv
  */
 export async function addMovimientoProveedorDoc(id: string, data: Omit<MovimientoProveedor, 'id' | 'creadoEn' | 'actualizadoEn'>): Promise<void> {
   const now = Date.now()
-  await setDoc(doc(db, 'movimientos_proveedores', id), { ...data, creadoEn: now, actualizadoEn: now })
+  await setDoc(doc(db, 'movimientos_proveedores', id), stripUndefined({ ...data, creadoEn: now, actualizadoEn: now }))
 }
 
 export async function updateMovimientoProveedorDoc(id: string, data: Partial<Omit<MovimientoProveedor, 'id' | 'creadoEn'>>): Promise<void> {

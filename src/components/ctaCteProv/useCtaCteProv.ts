@@ -3,6 +3,7 @@ import {
   subscribeProveedores, subscribeMovimientosProveedores,
   addProveedorDoc, addMovimientoProveedorDoc, updateMovimientoProveedorDoc,
 } from '@/lib/db'
+import { useAppStore } from '@/store/useAppStore'
 import { genId, hoyISO } from '@/lib/utils'
 import type { Proveedor, MovimientoProveedor, FormaPagoProv } from '@/types'
 
@@ -42,6 +43,7 @@ function compararMovimientos(a: MovimientoProveedor, b: MovimientoProveedor): nu
 }
 
 export function useCtaCteProv() {
+  const currentUserId = useAppStore(s => s.currentUser?.id)
   const [proveedores, setProveedores] = useState<Proveedor[]>([])
   const [movimientos, setMovimientos] = useState<MovimientoProveedor[]>([])
   const [loadingProveedores, setLoadingProveedores] = useState(true)
@@ -109,6 +111,7 @@ export function useCtaCteProv() {
       fecha: hoyISO(),
       aPagar: 0,
       pagado: 0,
+      creadoPor: currentUserId || undefined,
       creadoEn: Date.now(),
       actualizadoEn: Date.now(),
     }
@@ -117,11 +120,11 @@ export function useCtaCteProv() {
     setEstadoFilas(prev => ({ ...prev, [id]: 'guardando' }))
     addMovimientoProveedorDoc(id, {
       proveedorId: nuevo.proveedorId, servicio: nuevo.servicio, formaPago: nuevo.formaPago,
-      fecha: nuevo.fecha, aPagar: nuevo.aPagar, pagado: nuevo.pagado,
+      fecha: nuevo.fecha, aPagar: nuevo.aPagar, pagado: nuevo.pagado, creadoPor: nuevo.creadoPor,
     })
       .then(() => setEstadoFilas(prev => ({ ...prev, [id]: 'guardado' })))
       .catch(() => setEstadoFilas(prev => ({ ...prev, [id]: 'error' })))
-  }, [filtros.proveedorId])
+  }, [filtros.proveedorId, currentUserId])
 
   const flushFila = useCallback((id: string) => {
     delete timersRef.current[id]
