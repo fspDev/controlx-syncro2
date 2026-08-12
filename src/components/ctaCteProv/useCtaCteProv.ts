@@ -164,36 +164,55 @@ export function useCtaCteProv() {
 
   const limpiarFiltros = useCallback(() => setFiltros(FILTROS_VACIOS), [])
 
+  // Cuando hay un filtro "desde" activo, el saldo de las filas visibles no
+  // arranca de cero: arrastra la deuda acumulada de todo lo anterior al
+  // período (respetando el resto de los filtros que definen la cuenta).
+  const hayPeriodo = filtros.fechaDesde !== ''
+
   // Filtrado + saldo corrido: memoizado porque recalcula sobre todo el set en
   // cada cambio de filtro/movimiento, y el saldo depende del orden acumulado
   // (no se puede paralelizar ni cachear por fila individual).
-  const filasConSaldo: MovimientoConSaldo[] = useMemo(() => {
-    const ordenados = [...movimientos].sort(compararMovimientos)
-    const filtrados = ordenados.filter(m => {
+  //
+  // El acumulado corre sobre TODAS las filas que matchean los filtros no-fecha,
+  // ordenadas por fecha; la ventana [desde, hasta] solo decide cuáles se
+  // muestran. Así el saldo de cada fila visible ya incluye lo de antes del
+  // período (saldoAnterior) y la continuidad queda garantizada.
+  const { filasConSaldo, saldoAnterior } = useMemo(() => {
+    const matcheaNoFecha = (m: MovimientoProveedor) => {
       if (filtros.proveedorId && m.proveedorId !== filtros.proveedorId) return false
       if (filtros.servicio.trim() && !m.servicio.toLowerCase().includes(filtros.servicio.trim().toLowerCase())) return false
       if (filtros.formaPago && m.formaPago !== filtros.formaPago) return false
-      if (filtros.fechaDesde && m.fecha < filtros.fechaDesde) return false
-      if (filtros.fechaHasta && m.fecha > filtros.fechaHasta) return false
       if (filtros.soloAPagar && !m.aPagar) return false
       if (filtros.soloPagado && !m.pagado) return false
       return true
-    })
-    // Construcción inmutable: el saldo de cada fila se deriva del saldo de la
-    // fila anterior ya calculada, sin reasignar ninguna variable compartida
-    // entre iteraciones.
-    return filtrados.reduce<MovimientoConSaldo[]>((acc, m) => {
-      const saldoPrevio = acc.length > 0 ? acc[acc.length - 1].saldo : 0
-      return [...acc, { ...m, saldo: saldoPrevio + m.aPagar - m.pagado }]
-    }, [])
+    }
+    const base = [...movimientos].sort(compararMovimientos).filter(matcheaNoFecha)
+    // Reduce inmutable: se acarrea el acumulado y el saldo anterior en el
+    // estado del reduce, sin reasignar variables compartidas entre iteraciones.
+    const resultado = base.reduce<{ acumulado: number; saldoAnterior: number; visibles: MovimientoConSaldo[] }>(
+      (estado, m) => {
+        const acumulado = estado.acumulado + m.aPagar - m.pagado
+        if (filtros.fechaDesde && m.fecha < filtros.fechaDesde) {
+          return { acumulado, saldoAnterior: acumulado, visibles: estado.visibles }
+        }
+        if (filtros.fechaHasta && m.fecha > filtros.fechaHasta) {
+          return { ...estado, acumulado }
+        }
+        return { acumulado, saldoAnterior: estado.saldoAnterior, visibles: [...estado.visibles, { ...m, saldo: acumulado }] }
+      },
+      { acumulado: 0, saldoAnterior: 0, visibles: [] },
+    )
+    return { filasConSaldo: resultado.visibles, saldoAnterior: resultado.saldoAnterior }
   }, [movimientos, filtros])
 
   const totales = useMemo(() => {
     const aPagar = filasConSaldo.reduce((s, m) => s + m.aPagar, 0)
     const pagado = filasConSaldo.reduce((s, m) => s + m.pagado, 0)
-    const saldo = filasConSaldo.length > 0 ? filasConSaldo[filasConSaldo.length - 1].saldo : 0
+    // Saldo final = última fila visible (que ya arrastra el saldo anterior); si
+    // no hubo movimientos en el período, el final es el propio saldo anterior.
+    const saldo = filasConSaldo.length > 0 ? filasConSaldo[filasConSaldo.length - 1].saldo : saldoAnterior
     return { aPagar, pagado, saldo, cantidad: filasConSaldo.length }
-  }, [filasConSaldo])
+  }, [filasConSaldo, saldoAnterior])
 
   const proveedorFiltrado = filtros.proveedorId ? proveedores.find(p => p.id === filtros.proveedorId) : undefined
 
@@ -201,7 +220,7 @@ export function useCtaCteProv() {
     proveedores, proveedoresActivos, nombrePorProveedorId,
     loading: loadingProveedores || loadingMovimientos,
     error,
-    filasConSaldo, totales,
+    filasConSaldo, totales, saldoAnterior, hayPeriodo,
     filtros, setFiltros, hayFiltrosActivos, limpiarFiltros,
     proveedorFiltrado,
     estadoFilas,

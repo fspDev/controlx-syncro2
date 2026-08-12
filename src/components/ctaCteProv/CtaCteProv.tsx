@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { cn, formatMontoProv, formatMiles, soloDigitos, montoDesdeDigitos, formatCurrency } from '@/lib/utils'
+import { cn, formatMontoProv, formatMiles, soloDigitos, montoDesdeDigitos, formatCurrency, formatFechaISO } from '@/lib/utils'
 import { FORMAS_PAGO_PROV } from '@/types'
 import type { FormaPagoProv, Proveedor } from '@/types'
 import { useAppStore } from '@/store/useAppStore'
@@ -33,7 +33,7 @@ export function CtaCteProv({ readOnly = false }: CtaCteProvProps) {
   const {
     proveedores, proveedoresActivos, nombrePorProveedorId,
     loading, error,
-    filasConSaldo, totales,
+    filasConSaldo, totales, saldoAnterior, hayPeriodo,
     filtros, setFiltros, hayFiltrosActivos, limpiarFiltros,
     proveedorFiltrado,
     estadoFilas,
@@ -61,7 +61,15 @@ export function CtaCteProv({ readOnly = false }: CtaCteProvProps) {
     if (ok) { setNuevoProveedor(''); setShowAltaProveedor(false) }
   }
 
-  const saldoLabel = proveedorFiltrado ? `Saldo con ${proveedorFiltrado.nombre}` : 'Saldo'
+  // Con un período activo el saldo mostrado es el "final" (arrastre + período).
+  const saldoLabel = hayPeriodo
+    ? (proveedorFiltrado ? `Saldo final con ${proveedorFiltrado.nombre}` : 'Saldo final')
+    : (proveedorFiltrado ? `Saldo con ${proveedorFiltrado.nombre}` : 'Saldo')
+
+  // Con un período activo mostramos la tabla aunque no haya movimientos dentro,
+  // siempre que exista un saldo arrastrado desde antes (ej: "en julio no hubo
+  // nada pero venís debiendo $X de junio").
+  const mostrarTabla = filasConSaldo.length > 0 || (hayPeriodo && saldoAnterior !== 0)
 
   return (
     <div className="space-y-4">
@@ -127,11 +135,11 @@ export function CtaCteProv({ readOnly = false }: CtaCteProvProps) {
       {/* Métricas de resumen */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4">
-          <p className="text-xs text-gray-500 mb-1">Total a pagar</p>
+          <p className="text-xs text-gray-500 mb-1">{hayPeriodo ? 'A pagar (período)' : 'Total a pagar'}</p>
           <p className="text-lg font-bold text-red-400 tabular-nums">{formatCurrency(totales.aPagar)}</p>
         </div>
         <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4">
-          <p className="text-xs text-gray-500 mb-1">Total pagado</p>
+          <p className="text-xs text-gray-500 mb-1">{hayPeriodo ? 'Pagado (período)' : 'Total pagado'}</p>
           <p className="text-lg font-bold text-emerald-400 tabular-nums">{formatCurrency(totales.pagado)}</p>
         </div>
         <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4">
@@ -230,7 +238,7 @@ export function CtaCteProv({ readOnly = false }: CtaCteProvProps) {
         <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-12 text-center text-gray-500 text-sm">
           Todavía no hay movimientos.{!readOnly && ' Agregá el primero con el botón de arriba.'}
         </div>
-      ) : filasConSaldo.length === 0 ? (
+      ) : !mostrarTabla ? (
         <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-12 text-center text-gray-500 text-sm">
           Ningún movimiento coincide con los filtros aplicados.
           {hayFiltrosActivos && <> <button onClick={limpiarFiltros} className="text-brand-400 hover:text-brand-300 cursor-pointer underline">Limpiar filtros</button></>}
@@ -264,6 +272,24 @@ export function CtaCteProv({ readOnly = false }: CtaCteProvProps) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--border-s)]">
+                {hayPeriodo && (
+                  <tr className="bg-[var(--surface-2)]/50 border-b border-[var(--border)]">
+                    <td colSpan={7} className="px-2 py-2 text-xs italic text-gray-400">
+                      Saldo anterior al {formatFechaISO(filtros.fechaDesde)}
+                    </td>
+                    <td className="px-2 py-2 text-right text-sm font-semibold text-gray-300 tabular-nums bg-[var(--surface-2)]/40">
+                      {formatCurrency(saldoAnterior)}
+                    </td>
+                    <td />
+                  </tr>
+                )}
+                {hayPeriodo && filasConSaldo.length === 0 && (
+                  <tr>
+                    <td colSpan={9} className="px-2 py-6 text-center text-xs text-gray-500">
+                      No hubo movimientos en el período seleccionado.
+                    </td>
+                  </tr>
+                )}
                 {filasConSaldo.map(mov => (
                   <Fila
                     key={mov.id}
