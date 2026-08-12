@@ -3,7 +3,8 @@ import { cn, formatMontoProv, soloDigitos, montoDesdeDigitos, formatCurrency } f
 import { FORMAS_PAGO_PROV } from '@/types'
 import type { FormaPagoProv, Proveedor } from '@/types'
 import { useAppStore } from '@/store/useAppStore'
-import { Plus, X, Loader2, AlertCircle, Wallet } from 'lucide-react'
+import { ConfirmDialog } from '@/components/ui/Dialog'
+import { Plus, X, Loader2, AlertCircle, Wallet, Trash2 } from 'lucide-react'
 import { useCtaCteProv, type EstadoFila, type MovimientoConSaldo } from './useCtaCteProv'
 
 interface CtaCteProvProps {
@@ -17,7 +18,7 @@ interface CtaCteProvProps {
 // ocupa el ancho completo del contenedor en vez de dejar un hueco a la derecha.
 const COL_WIDTHS = {
   proveedor: 160, formaPago: 150, fecha: 120, creo: 120,
-  aPagar: 130, pagado: 130, saldo: 130, estado: 36,
+  aPagar: 130, pagado: 130, saldo: 130, estado: 64,
 }
 const COL_WIDTHS_TOTAL = Object.values(COL_WIDTHS).reduce((a, b) => a + b, 0)
 
@@ -37,10 +38,11 @@ export function CtaCteProv({ readOnly = false }: CtaCteProvProps) {
     proveedorFiltrado,
     estadoFilas,
     agregarProveedor, errorProveedor, setErrorProveedor,
-    agregarFila, actualizarFila,
+    agregarFila, actualizarFila, eliminarFila,
     hayMovimientos,
   } = useCtaCteProv()
 
+  const [deleteId, setDeleteId] = useState<string | null>(null)
   const usuarios = useAppStore(s => s.usuarios)
   const nombreCreador = (uid?: string) => {
     if (!uid) return '—'
@@ -283,6 +285,7 @@ export function CtaCteProv({ readOnly = false }: CtaCteProvProps) {
                     estado={estadoFilas[mov.id]}
                     readOnly={readOnly}
                     onChange={patch => actualizarFila(mov.id, patch)}
+                    onDelete={() => setDeleteId(mov.id)}
                   />
                 ))}
               </tbody>
@@ -301,6 +304,15 @@ export function CtaCteProv({ readOnly = false }: CtaCteProvProps) {
       )}
         </>
       )}
+
+      <ConfirmDialog
+        open={deleteId !== null}
+        onClose={() => setDeleteId(null)}
+        onConfirm={() => { if (deleteId) eliminarFila(deleteId) }}
+        title="Eliminar movimiento"
+        message="¿Seguro que querés eliminar este movimiento? Esta acción no se puede deshacer."
+        confirmLabel="Eliminar"
+      />
     </div>
   )
 }
@@ -326,9 +338,10 @@ interface FilaProps {
   estado?: EstadoFila
   readOnly: boolean
   onChange: (patch: Partial<Pick<MovimientoConSaldo, 'proveedorId' | 'servicio' | 'formaPago' | 'fecha' | 'aPagar' | 'pagado'>>) => void
+  onDelete: () => void
 }
 
-function Fila({ mov, proveedores, nombrePorProveedorId, creadorNombre, estado, readOnly, onChange }: FilaProps) {
+function Fila({ mov, proveedores, nombrePorProveedorId, creadorNombre, estado, readOnly, onChange, onDelete }: FilaProps) {
   // Si el proveedor asignado a esta fila fue dado de baja, se sigue mostrando
   // en su propio select (aunque ya no aparezca para filas nuevas) para no
   // "perder" silenciosamente a quién pertenece un movimiento histórico.
@@ -395,8 +408,20 @@ function Fila({ mov, proveedores, nombrePorProveedorId, creadorNombre, estado, r
       <td className="px-2 py-1.5 text-right text-sm font-semibold text-gray-100 tabular-nums bg-[var(--surface-2)]/40">
         {formatCurrency(mov.saldo)}
       </td>
-      <td className="px-1 py-0.5 text-center">
-        <EstadoDot estado={estado} />
+      <td className="px-1 py-0.5">
+        <div className="flex items-center justify-center gap-1.5">
+          <EstadoDot estado={estado} />
+          {!readOnly && (
+            <button
+              onClick={onDelete}
+              aria-label="Eliminar movimiento"
+              title="Eliminar movimiento"
+              className="text-gray-600 hover:text-red-400 cursor-pointer motion-safe:transition-colors"
+            >
+              <Trash2 size={13} />
+            </button>
+          )}
+        </div>
       </td>
     </tr>
   )

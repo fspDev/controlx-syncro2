@@ -93,9 +93,10 @@ service cloud.firestore {
     match /movimientos_proveedores/{movId} {
       allow read: if tieneCtaCteProv();
       allow create, update: if tieneCtaCteProv() && movimientoProveedorValido();
-      // Sin UI de borrado hoy; se restringe a admin por ser datos financieros
-      // históricos, mismo criterio que el borrado de proveedores.
-      allow delete: if isAdmin();
+      // Borrado disponible desde la grilla para cualquier usuario con el
+      // permiso: quien puede editar/cargar filas también puede eliminarlas
+      // (poder editarlas a cero pero no borrarlas sería inconsistente).
+      allow delete: if tieneCtaCteProv();
     }
 
     // Tareas de usuario — el dueño puede escribir; dueño y compartidos pueden leer

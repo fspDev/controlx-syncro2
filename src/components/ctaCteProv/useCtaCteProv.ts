@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   subscribeProveedores, subscribeMovimientosProveedores,
-  addProveedorDoc, addMovimientoProveedorDoc, updateMovimientoProveedorDoc,
+  addProveedorDoc, addMovimientoProveedorDoc, updateMovimientoProveedorDoc, deleteMovimientoProveedorDoc,
 } from '@/lib/db'
 import { useAppStore } from '@/store/useAppStore'
 import { genId, hoyISO } from '@/lib/utils'
@@ -146,6 +146,17 @@ export function useCtaCteProv() {
     timersRef.current[id] = setTimeout(() => flushFila(id), DEBOUNCE_MS)
   }, [flushFila])
 
+  const eliminarFila = useCallback((id: string) => {
+    // Cancela cualquier autosave pendiente de esta fila para que no reescriba
+    // el documento justo después de borrarlo.
+    if (timersRef.current[id]) { clearTimeout(timersRef.current[id]); delete timersRef.current[id] }
+    // Optimista: desaparece ya. Si el borrado en Firestore falla, la
+    // suscripción vuelve a reponer la fila en el próximo snapshot.
+    setMovimientos(prev => prev.filter(m => m.id !== id))
+    setEstadoFilas(prev => { const next = { ...prev }; delete next[id]; return next })
+    deleteMovimientoProveedorDoc(id).catch(console.error)
+  }, [])
+
   const hayFiltrosActivos = useMemo(() => (
     filtros.proveedorId !== '' || filtros.servicio.trim() !== '' || filtros.formaPago !== '' ||
     filtros.fechaDesde !== '' || filtros.fechaHasta !== '' || filtros.soloAPagar || filtros.soloPagado
@@ -195,7 +206,7 @@ export function useCtaCteProv() {
     proveedorFiltrado,
     estadoFilas,
     agregarProveedor, errorProveedor, setErrorProveedor,
-    agregarFila, actualizarFila,
+    agregarFila, actualizarFila, eliminarFila,
     hayMovimientos: movimientos.length > 0,
   }
 }
