@@ -276,7 +276,10 @@ function ProyectoDetailPanel({ evento, proyecto, cliente, usuarios, registro, ge
             <span className={`px-2.5 py-1 rounded-full text-xs font-medium border border-transparent ${ESTADO_COLORS[proyecto.estado].bg} ${ESTADO_COLORS[proyecto.estado].text}`}>
               {estadoLabel(proyecto.estado)}
             </span>
-            <span className="ml-auto text-lg font-bold text-gray-100">{formatCurrency(proyecto.importe)}</span>
+            <span className="ml-auto text-lg font-bold text-gray-100">
+              {formatCurrency(proyecto.importe)}
+              {proyecto.importe > 0 && <span className="text-xs font-normal text-gray-500 ml-1">+ I.V.A.</span>}
+            </span>
           </div>
 
           {/* Info básica */}

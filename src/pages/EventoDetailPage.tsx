@@ -338,7 +338,10 @@ function ProyectoCard({ evento, proyecto }: { evento: Evento; proyecto: Proyecto
             <DollarSign size={12} className="text-gray-600" />
             <span className="text-xs text-gray-500">Importe</span>
           </div>
-          <p className="text-sm text-gray-200">{formatCurrency(proyecto.importe)}</p>
+          <p className="text-sm text-gray-200">
+            {formatCurrency(proyecto.importe)}
+            {proyecto.importe > 0 && <span className="text-xs text-gray-500 ml-1">+ I.V.A.</span>}
+          </p>
         </div>
       </div>
 

@@ -44,6 +44,7 @@ export function CtaCteProv({ readOnly = false }: CtaCteProvProps) {
 
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const usuarios = useAppStore(s => s.usuarios)
+  const currentUserId = useAppStore(s => s.currentUser?.id)
   const nombreCreador = (uid?: string) => {
     if (!uid) return '—'
     const u = usuarios.find(x => x.id === uid)
@@ -297,6 +298,7 @@ export function CtaCteProv({ readOnly = false }: CtaCteProvProps) {
                     proveedores={proveedoresActivos}
                     nombrePorProveedorId={nombrePorProveedorId}
                     creadorNombre={nombreCreador(mov.creadoPor)}
+                    puedeEliminar={!!mov.creadoPor && mov.creadoPor === currentUserId}
                     estado={estadoFilas[mov.id]}
                     readOnly={readOnly}
                     onChange={patch => actualizarFila(mov.id, patch)}
@@ -350,13 +352,14 @@ interface FilaProps {
   proveedores: Proveedor[]
   nombrePorProveedorId: Map<string, string>
   creadorNombre: string
+  puedeEliminar: boolean
   estado?: EstadoFila
   readOnly: boolean
   onChange: (patch: Partial<Pick<MovimientoConSaldo, 'proveedorId' | 'servicio' | 'formaPago' | 'fecha' | 'aPagar' | 'pagado'>>) => void
   onDelete: () => void
 }
 
-function Fila({ mov, proveedores, nombrePorProveedorId, creadorNombre, estado, readOnly, onChange, onDelete }: FilaProps) {
+function Fila({ mov, proveedores, nombrePorProveedorId, creadorNombre, puedeEliminar, estado, readOnly, onChange, onDelete }: FilaProps) {
   // Si el proveedor asignado a esta fila fue dado de baja, se sigue mostrando
   // en su propio select (aunque ya no aparezca para filas nuevas) para no
   // "perder" silenciosamente a quién pertenece un movimiento histórico.
@@ -426,7 +429,7 @@ function Fila({ mov, proveedores, nombrePorProveedorId, creadorNombre, estado, r
       <td className="px-1 py-0.5">
         <div className="flex items-center justify-center gap-1.5">
           <EstadoDot estado={estado} />
-          {!readOnly && (
+          {!readOnly && puedeEliminar && (
             <button
               onClick={onDelete}
               aria-label="Eliminar movimiento"

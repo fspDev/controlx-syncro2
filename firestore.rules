@@ -93,10 +93,9 @@ service cloud.firestore {
     match /movimientos_proveedores/{movId} {
       allow read: if tieneCtaCteProv();
       allow create, update: if tieneCtaCteProv() && movimientoProveedorValido();
-      // Borrado disponible desde la grilla para cualquier usuario con el
-      // permiso: quien puede editar/cargar filas también puede eliminarlas
-      // (poder editarlas a cero pero no borrarlas sería inconsistente).
-      allow delete: if tieneCtaCteProv();
+      // Borrado: solo quien creó la fila puede eliminarla. Las filas viejas
+      // sin `creadoPor` quedan sin dueño y no las borra nadie por esta regla.
+      allow delete: if tieneCtaCteProv() && resource.data.get('creadoPor', '') == request.auth.uid;
     }
 
     // Tareas de usuario — el dueño puede escribir; dueño y compartidos pueden leer
