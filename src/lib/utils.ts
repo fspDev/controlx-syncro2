@@ -12,6 +12,16 @@ export function genId(): string {
 
 export function formatDate(dateStr?: string): string {
   if (!dateStr) return '—'
+  // Fecha "pura" (YYYY-MM-DD, sin hora — armadoInicio, eventoInicio, desarme,
+  // etc.): se parsea a mano, igual que formatFechaISO(). new Date('2026-08-25')
+  // se interpreta como medianoche UTC; en Argentina (UTC-3) eso retrocede al
+  // día 24 al mostrarlo, aunque el valor guardado y editado sea el 25.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    const [anio, mes, dia] = dateStr.split('-')
+    return `${dia}/${mes}/${anio}`
+  }
+  // Timestamp completo (createdAt/updatedAt): sí lleva hora real, la
+  // conversión a huso horario local es la conducta correcta acá.
   const d = new Date(dateStr)
   return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
