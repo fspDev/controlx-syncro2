@@ -2,10 +2,11 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAppStore } from '@/store/useAppStore'
 import {
-  formatCurrency, formatDate, formatMiles, soloDigitos, montoDesdeDigitos, genId,
+  formatCurrency, formatDate, genId,
   montoPagadoAdmin, estadoPagoAdmin, ESTADO_PAGO_ADMIN_COLORS,
   proyectoEstadoLabel, PROYECTO_ESTADO_COLORS, MEDIOS_PAGO,
 } from '@/lib/utils'
+import { MontoInput } from '@/components/ui/MontoInput'
 import type { Cliente, Evento, MedioPago, PagoAdmin, Proyecto, RegistroAdmin, Usuario } from '@/types'
 import {
   Wallet, User, Phone, Mail, MapPin, FileText, X, Calendar, Package, CheckSquare, Image, FolderOpen,
@@ -499,6 +500,10 @@ function ProyectoDetailPanel({ evento, proyecto, cliente, usuarios, registro, ge
 }) {
   const [concepto, setConcepto] = useState(registro?.concepto || '')
   const [pagos, setPagos] = useState<PagoAdmin[]>(registro?.pagos || [])
+  // Borrador del próximo pago a registrar — no se guarda nada hasta tocar
+  // "Confirmar pago", así se pueden cargar varios pagos seguidos sin que
+  // cada tecleo dispare un guardado a mitad de completar el formulario.
+  const [draft, setDraft] = useState<{ formaPago?: MedioPago; monto: number; fecha?: string }>({ monto: 0 })
   const panelRef = useRef<HTMLDivElement>(null)
 
   // Ajuste de estado durante el render (no en un efecto). Cada campo se
@@ -530,7 +535,6 @@ function ProyectoDetailPanel({ evento, proyecto, cliente, usuarios, registro, ge
   }
 
   const commitPagos = (next: PagoAdmin[]) => { setPagos(next); updateRegistroAdmin(ensureId(), { pagos: next }) }
-  const agregarPago = () => commitPagos([...pagos, { id: genId(), monto: 0 }])
   const eliminarPago = (id: string) => commitPagos(pagos.filter(p => p.id !== id))
   const setPagoLocal = (id: string, patch: Partial<PagoAdmin>) => setPagos(prev => prev.map(p => p.id === id ? { ...p, ...patch } : p))
   const commitPagoField = (id: string) => {
@@ -542,6 +546,12 @@ function ProyectoDetailPanel({ evento, proyecto, cliente, usuarios, registro, ge
   const setPagoInmediato = (id: string, patch: Partial<PagoAdmin>) => {
     const next = pagos.map(p => p.id === id ? { ...p, ...patch } : p)
     commitPagos(next)
+  }
+
+  const confirmarPagoDraft = () => {
+    if (draft.monto <= 0) return
+    commitPagos([...pagos, { id: genId(), ...draft }])
+    setDraft({ monto: 0 })
   }
 
   const responsable = usuarios.find(u => u.id === proyecto.responsableId)
@@ -710,15 +720,7 @@ function ProyectoDetailPanel({ evento, proyecto, cliente, usuarios, registro, ge
 
             {/* Pagos parciales */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-xs text-gray-500">Pagos</label>
-                <button
-                  onClick={e => { e.stopPropagation(); agregarPago() }}
-                  className="flex items-center gap-1 text-xs text-brand-400 hover:text-brand-300 cursor-pointer transition-colors"
-                >
-                  <Plus size={12} /> Agregar pago
-                </button>
-              </div>
+              <label className="text-xs text-gray-500">Pagos</label>
 
               {pagos.length === 0 ? (
                 <p className="text-xs text-gray-600 italic">Sin pagos registrados.</p>
@@ -740,10 +742,14 @@ function ProyectoDetailPanel({ evento, proyecto, cliente, usuarios, registro, ge
                         </button>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <MontoPagoInput
+                        <MontoInput
                           value={pago.monto}
                           onChange={n => setPagoLocal(pago.id, { monto: n })}
-                          onCommit={() => commitPagoField(pago.id)}
+                          onBlur={() => commitPagoField(pago.id)}
+                          ariaLabel="Monto del pago"
+                          placeholder="Monto"
+                          blankWhenZero
+                          className="flex-1 bg-[var(--surface)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-xs text-gray-200 text-right focus:border-brand-500/50 transition-all"
                         />
                         <input
                           type="date"
@@ -756,6 +762,41 @@ function ProyectoDetailPanel({ evento, proyecto, cliente, usuarios, registro, ge
                   ))}
                 </div>
               )}
+
+              {/* Borrador del próximo pago — no se guarda nada hasta "Confirmar pago" */}
+              <div className="bg-[var(--bg)] border border-dashed border-[var(--border-h)] rounded-lg p-2.5 space-y-2" onClick={e => e.stopPropagation()}>
+                <select
+                  value={draft.formaPago || ''}
+                  onChange={e => setDraft(d => ({ ...d, formaPago: (e.target.value || undefined) as MedioPago | undefined }))}
+                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-xs text-gray-300 focus:outline-none cursor-pointer [&>option]:bg-white [&>option]:text-black"
+                >
+                  <option value="">— Forma de pago —</option>
+                  {MEDIOS_PAGO.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+                <div className="flex items-center gap-1.5">
+                  <MontoInput
+                    value={draft.monto}
+                    onChange={n => setDraft(d => ({ ...d, monto: n }))}
+                    ariaLabel="Monto del nuevo pago"
+                    placeholder="Monto"
+                    blankWhenZero
+                    className="flex-1 bg-[var(--surface)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-xs text-gray-200 text-right focus:border-brand-500/50 transition-all"
+                  />
+                  <input
+                    type="date"
+                    value={draft.fecha || ''}
+                    onChange={e => setDraft(d => ({ ...d, fecha: e.target.value || undefined }))}
+                    className="bg-[var(--surface)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-xs text-gray-300 focus:outline-none"
+                  />
+                </div>
+                <button
+                  onClick={confirmarPagoDraft}
+                  disabled={draft.monto <= 0}
+                  className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 bg-brand-500 hover:bg-brand-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-medium rounded-lg transition-colors cursor-pointer"
+                >
+                  <Plus size={13} /> Confirmar pago
+                </button>
+              </div>
 
               {/* Resumen de cobro */}
               <div className="pt-2 mt-2 border-t border-[var(--border)] space-y-1">
@@ -777,29 +818,6 @@ function ProyectoDetailPanel({ evento, proyecto, cliente, usuarios, registro, ge
         </div>
       </div>
     </div>
-  )
-}
-
-function MontoPagoInput({ value, onChange, onCommit }: { value: number; onChange: (n: number) => void; onCommit: () => void }) {
-  const [focused, setFocused] = useState(false)
-  const [raw, setRaw] = useState('')
-
-  return (
-    <input
-      type="text"
-      inputMode="numeric"
-      aria-label="Monto del pago"
-      value={focused ? (raw ? formatMiles(Number(raw)) : '') : (value ? formatMiles(value) : '')}
-      onFocus={e => { setFocused(true); setRaw(value ? String(value) : ''); e.target.select() }}
-      onChange={e => {
-        const digits = soloDigitos(e.target.value)
-        setRaw(digits)
-        onChange(montoDesdeDigitos(digits))
-      }}
-      onBlur={() => { setFocused(false); onCommit() }}
-      placeholder="Monto"
-      className="flex-1 bg-[var(--surface)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-xs text-gray-200 text-right tabular-nums placeholder:text-gray-600 focus:border-brand-500/50 focus:outline-none transition-all"
-    />
   )
 }
 

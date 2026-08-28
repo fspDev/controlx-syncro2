@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { cn, formatMontoProv, formatMiles, soloDigitos, montoDesdeDigitos, formatCurrency, formatFechaISO } from '@/lib/utils'
+import { cn, formatCurrency, formatFechaISO } from '@/lib/utils'
 import { FORMAS_PAGO_PROV } from '@/types'
 import type { FormaPagoProv, Proveedor } from '@/types'
 import { useAppStore } from '@/store/useAppStore'
 import { ConfirmDialog } from '@/components/ui/Dialog'
+import { MontoInput } from '@/components/ui/MontoInput'
 import { Plus, X, Loader2, AlertCircle, Wallet, Trash2 } from 'lucide-react'
 import { useCtaCteProv, type EstadoFila, type MovimientoConSaldo } from './useCtaCteProv'
 
@@ -418,10 +419,18 @@ function Fila({ mov, proveedores, nombrePorProveedorId, creadorNombre, puedeElim
         {creadorNombre}
       </td>
       <td className="px-1 py-0.5">
-        <MontoInput value={mov.aPagar} onChange={n => onChange({ aPagar: n })} colorClass="text-red-400" ariaLabel="A pagar" readOnly={readOnly} />
+        <MontoInput
+          value={mov.aPagar} onChange={n => onChange({ aPagar: n })} ariaLabel="A pagar" readOnly={readOnly}
+          blankWhenZero currency placeholder="—"
+          className={cn(inputBase, 'text-right font-medium text-red-400')}
+        />
       </td>
       <td className="px-1 py-0.5">
-        <MontoInput value={mov.pagado} onChange={n => onChange({ pagado: n })} colorClass="text-emerald-400" ariaLabel="Pagado" readOnly={readOnly} />
+        <MontoInput
+          value={mov.pagado} onChange={n => onChange({ pagado: n })} ariaLabel="Pagado" readOnly={readOnly}
+          blankWhenZero currency placeholder="—"
+          className={cn(inputBase, 'text-right font-medium text-emerald-400')}
+        />
       </td>
       <td className="px-2 py-1.5 text-right text-sm font-semibold text-gray-100 tabular-nums bg-[var(--surface-2)]/40">
         {formatCurrency(mov.saldo)}
@@ -445,36 +454,6 @@ function Fila({ mov, proveedores, nombrePorProveedorId, creadorNombre, puedeElim
   )
 }
 
-function MontoInput({ value, onChange, colorClass, ariaLabel, readOnly }: {
-  value: number
-  onChange: (n: number) => void
-  colorClass: string
-  ariaLabel: string
-  readOnly?: boolean
-}) {
-  const [focused, setFocused] = useState(false)
-  const [raw, setRaw] = useState('')
-
-  return (
-    <input
-      type="text"
-      inputMode="numeric"
-      aria-label={ariaLabel}
-      readOnly={readOnly}
-      value={focused ? (raw ? formatMiles(Number(raw)) : '') : formatMontoProv(value)}
-      onFocus={e => { setFocused(true); setRaw(value ? String(value) : ''); e.target.select() }}
-      onChange={e => {
-        if (readOnly) return
-        const digits = soloDigitos(e.target.value)
-        setRaw(digits)
-        onChange(montoDesdeDigitos(digits))
-      }}
-      onBlur={() => setFocused(false)}
-      placeholder="—"
-      className={cn(inputBase, 'text-right tabular-nums font-medium', colorClass)}
-    />
-  )
-}
 
 function EstadoDot({ estado }: { estado?: EstadoFila }) {
   if (!estado) return <span className="inline-block w-1.5 h-1.5" />

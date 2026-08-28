@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
 import { Select } from '@/components/ui/Select'
 import { Badge } from '@/components/ui/Badge'
+import { MontoInput } from '@/components/ui/MontoInput'
 import { formatDate, formatCurrency, TRABAJO_ESTADO_COLORS, ESTADOS_TRABAJO, MEDIOS_PAGO } from '@/lib/utils'
 import type { TrabajoExterno, TrabajoEstado, MedioPago } from '@/types'
 import { Plus, Edit2, Trash2, CheckSquare, ArrowUp, ArrowDown } from 'lucide-react'
@@ -262,7 +263,12 @@ export function TrabajosPage() {
           <div className="bg-[var(--bg)] border border-[var(--border)] rounded-xl p-4 space-y-3">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Económico</p>
             <div className="grid grid-cols-2 gap-3">
-              <Input label="Precio ($)" type="number" value={form.precioVenta} onChange={e => set('precioVenta', parseFloat(e.target.value)||0)} min={0} />
+              <MontoInput
+                label="Precio ($)"
+                value={form.precioVenta}
+                onChange={n => set('precioVenta', n)}
+                className="bg-[var(--bg)] border border-[var(--border)] rounded-lg px-3 py-2 text-gray-200 focus:border-brand-500/50 focus:ring-1 focus:ring-brand-500/20 transition-all"
+              />
               <Select label="Medio de Pago" value={form.medioPago} onChange={e => set('medioPago', e.target.value as MedioPago)} options={medioPagoOpts} />
             </div>
             <Select label="Estado" value={form.estado} onChange={e => set('estado', e.target.value as TrabajoEstado)} options={trabajoEstadoOpts} />

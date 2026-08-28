@@ -3,6 +3,7 @@ import { useAppStore } from '@/store/useAppStore'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
 import { Select } from '@/components/ui/Select'
+import { MontoInput } from '@/components/ui/MontoInput'
 import { ESTADOS_PROYECTO, proyectoEstadoLabel } from '@/lib/utils'
 import { X } from 'lucide-react'
 import type { ProyectoFormData } from '@/components/eventos/ProyectoForm'
@@ -41,7 +42,12 @@ export function ProyectoRowFields({ value, onChange, onRemove }: ProyectoRowFiel
         <Select label="Responsable" value={value.responsableId || ''} onChange={e => set('responsableId', e.target.value)} options={responsableOpts} />
       </div>
       <Input label="Fabricación" value={value.fabricacion} onChange={e => set('fabricacion', e.target.value)} placeholder="Descripción de lo que se fabrica/arma" />
-      <Input label="Importe ($)" type="number" value={value.importe} onChange={e => set('importe', parseFloat(e.target.value) || 0)} min={0} />
+      <MontoInput
+        label="Importe ($)"
+        value={value.importe}
+        onChange={n => set('importe', n)}
+        className="bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-gray-200 focus:border-brand-500/50 focus:ring-1 focus:ring-brand-500/20 transition-all"
+      />
       <Textarea label="Notas" value={value.notas} onChange={e => set('notas', e.target.value)} placeholder="Notas internas de este proyecto..." rows={2} />
     </div>
   )
