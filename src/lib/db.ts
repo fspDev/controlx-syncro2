@@ -15,7 +15,7 @@ import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage
 import { db, storage } from '@/lib/firebase'
 import type { Evento, Proyecto, Tarea, TrabajoExterno, Usuario, Cliente, TareaUsuario, RegistroAdmin, MedioPago, Proveedor, MovimientoProveedor } from '@/types'
 import type { TareaPlantilla } from '@/store/useAppStore'
-import { genId, applyAutoFinalizado } from '@/lib/utils'
+import { genId } from '@/lib/utils'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -48,19 +48,22 @@ function tsToIso(val: unknown): string {
 
 // ─── Normalizers ─────────────────────────────────────────────────────────────
 
-function normalizeEstadoEvento(s: unknown): Proyecto['estado'] {
-  const VALID: Proyecto['estado'][] = ['Negociacion', 'Confirmado', 'Armado', 'Finalizado', 'Cancelado']
+// 'Armado'/'Finalizado' son estados legados: hasta esta versión el estado del
+// proyecto/stand incluía fases cronológicas que ahora pasaron a ser el estado
+// automático del evento (ver eventoEstadoAuto en lib/utils.ts). Un stand que
+// haya quedado guardado en Firestore con alguno de esos dos valores no estaba
+// cancelado, así que el mapeo más fiel es "Confirmado".
+function normalizeProyectoEstado(s: unknown): Proyecto['estado'] {
+  const VALID: Proyecto['estado'][] = ['Negociacion', 'Confirmado', 'Cancelado']
   if (!s) return 'Negociacion'
   const str = String(s)
-  // Exact match
   if (VALID.includes(str as Proyecto['estado'])) return str as Proyecto['estado']
-  // Case-insensitive + accent-insensitive
   const lower = str.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
   const MAP: Record<string, Proyecto['estado']> = {
     negociacion: 'Negociacion',
     confirmado: 'Confirmado',
-    armado: 'Armado',
-    finalizado: 'Finalizado',
+    armado: 'Confirmado',
+    finalizado: 'Confirmado',
     cancelado: 'Cancelado',
   }
   return MAP[lower] ?? 'Negociacion'
@@ -102,7 +105,7 @@ function proyectoFromFirestore(id: string, data: Record<string, unknown>): Proye
   return {
     id,
     clienteId: (data.clienteId as string) || (data.cliente as string) || '',
-    estado: normalizeEstadoEvento(data.estado),
+    estado: normalizeProyectoEstado(data.estado),
     responsableId: (data.responsableId as string) || undefined,
     fabricacion: (data.fabricacion as string) || '',
     importe: Number(data.importe ?? 0),
@@ -123,7 +126,7 @@ function eventoFromFirestore(id: string, data: Record<string, unknown>): Evento 
     ? proyectosRaw.map((p: Record<string, unknown>) => proyectoFromFirestore((p.id as string) || genId(), p))
     : [proyectoFromFirestore(`${id}-legacy`, data)]
 
-  return applyAutoFinalizado({
+  return {
     id,
     titulo: (data.titulo as string) || '',
     lugar: (data.lugar as string) || '',
@@ -138,7 +141,7 @@ function eventoFromFirestore(id: string, data: Record<string, unknown>): Evento 
     createdAt: tsToIso(data.createdAt) || new Date().toISOString(),
     updatedAt: tsToIso(data.updatedAt) || new Date().toISOString(),
     createdBy: (data.createdBy as string) || '',
-  })
+  }
 }
 
 function eventoToFirestore(e: Evento): Record<string, unknown> {

@@ -1,6 +1,6 @@
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
-import type { Cliente, Evento, EventoEstado, TrabajoEstado } from '@/types'
+import type { Cliente, Evento, ProyectoEstado, EventoEstadoAuto, TrabajoEstado } from '@/types'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -76,35 +76,56 @@ export function formatFechaISO(iso?: string): string {
   return `${dia}/${mes}/${anio.slice(2)}`
 }
 
-const _ESTADO_COLORS: Record<EventoEstado, { bg: string; text: string; dot: string }> = {
+// Estado del proyecto/stand — manual, lo cambia cualquier usuario.
+const _PROYECTO_ESTADO_COLORS: Record<ProyectoEstado, { bg: string; text: string; dot: string }> = {
   Negociacion: { bg: 'bg-amber-500/15', text: 'text-amber-400', dot: 'bg-amber-400' },
   Confirmado:  { bg: 'bg-blue-500/15',  text: 'text-blue-400',  dot: 'bg-blue-400' },
-  Armado:      { bg: 'bg-violet-500/15',text: 'text-violet-400',dot: 'bg-violet-400' },
-  Finalizado:  { bg: 'bg-emerald-500/15',text: 'text-emerald-400',dot: 'bg-emerald-400' },
   Cancelado:   { bg: 'bg-red-500/15',   text: 'text-red-400',   dot: 'bg-red-400' },
 }
 // Proxy that falls back to Negociacion for unknown estado values (e.g. v1 data)
-export const ESTADO_COLORS = new Proxy(_ESTADO_COLORS, {
+export const PROYECTO_ESTADO_COLORS = new Proxy(_PROYECTO_ESTADO_COLORS, {
   get(target, prop) {
     return (target as Record<string, unknown>)[prop as string] ?? target['Negociacion']
   },
-}) as typeof _ESTADO_COLORS
+}) as typeof _PROYECTO_ESTADO_COLORS
+
+// Estado del evento — automático según cronología (ver eventoEstadoAuto()).
+// Colores alineados con el calendario: azul=armado, marca=en curso, violeta=desarme.
+export const EVENTO_ESTADO_COLORS: Record<EventoEstadoAuto, { bg: string; text: string; dot: string }> = {
+  EnDesarrollo: { bg: 'bg-gray-500/15',   text: 'text-gray-400',   dot: 'bg-gray-400' },
+  Armado:       { bg: 'bg-blue-500/15',   text: 'text-blue-400',   dot: 'bg-blue-400' },
+  EnCurso:      { bg: 'bg-brand-500/15',  text: 'text-brand-400',  dot: 'bg-brand-400' },
+  Desarme:      { bg: 'bg-violet-500/15', text: 'text-violet-400', dot: 'bg-violet-400' },
+  Finalizado:   { bg: 'bg-emerald-500/15',text: 'text-emerald-400',dot: 'bg-emerald-400' },
+}
 
 export const TRABAJO_ESTADO_COLORS: Record<TrabajoEstado, { bg: string; text: string }> = {
   'Pendiente':   { bg: 'bg-amber-500/15',  text: 'text-amber-400' },
   'Cobrado':     { bg: 'bg-emerald-500/15',text: 'text-emerald-400' },
 }
 
-export const ESTADOS_EVENTO: EventoEstado[] = ['Negociacion', 'Confirmado', 'Armado', 'Finalizado', 'Cancelado']
+export const ESTADOS_PROYECTO: ProyectoEstado[] = ['Negociacion', 'Confirmado', 'Cancelado']
+export const ESTADOS_EVENTO_AUTO: EventoEstadoAuto[] = ['EnDesarrollo', 'Armado', 'EnCurso', 'Desarme', 'Finalizado']
 export const ESTADOS_TRABAJO: TrabajoEstado[] = ['Pendiente', 'Cobrado']
 export const MEDIOS_PAGO: string[] = ['Transferencia', 'Echeqs', 'Retenciones', 'Efectivo', 'Cheques físicos']
 
-export function estadoLabel(estado: EventoEstado): string {
+export function proyectoEstadoLabel(estado: ProyectoEstado): string {
   if (estado === 'Negociacion') return 'Negociación'
   return estado
 }
 
-export function proyectoEstadosUnicos(evento: Evento): EventoEstado[] {
+const _EVENTO_ESTADO_AUTO_LABELS: Record<EventoEstadoAuto, string> = {
+  EnDesarrollo: 'En desarrollo',
+  Armado: 'Armado',
+  EnCurso: 'En curso',
+  Desarme: 'Desarme',
+  Finalizado: 'Finalizado',
+}
+export function eventoEstadoAutoLabel(estado: EventoEstadoAuto): string {
+  return _EVENTO_ESTADO_AUTO_LABELS[estado]
+}
+
+export function proyectoEstadosUnicos(evento: Evento): ProyectoEstado[] {
   return [...new Set(evento.proyectos.map(p => p.estado))]
 }
 
@@ -125,16 +146,28 @@ export function proyectoResponsablesLabel(evento: Evento, usuarios: { id: string
   return 'Varios'
 }
 
-// Un evento se da por finalizado cuando pasó su fecha de desarme (o, si no tiene,
-// la fecha de fin del evento). Los proyectos Cancelados no se tocan.
-export function applyAutoFinalizado(evento: Evento): Evento {
-  const cutoff = evento.desarme || evento.eventoFin
-  if (!cutoff) return evento
-  const cutoffEndOfDay = new Date(`${cutoff.slice(0, 10)}T23:59:59`)
-  if (cutoffEndOfDay >= new Date()) return evento
-  if (!evento.proyectos.some(p => p.estado !== 'Finalizado' && p.estado !== 'Cancelado')) return evento
-  return {
-    ...evento,
-    proyectos: evento.proyectos.map(p => p.estado === 'Cancelado' ? p : { ...p, estado: 'Finalizado' }),
-  }
+/**
+ * Estado del evento según su cronología — nadie lo edita a mano, se recalcula
+ * en cada render comparando la fecha de hoy contra las fechas del evento:
+ *
+ *   antes de armadoInicio        → EnDesarrollo
+ *   [armadoInicio, eventoInicio) → Armado
+ *   [eventoInicio, desarme)      → EnCurso
+ *   [desarme, fin del día]       → Desarme
+ *   después de (desarme|eventoFin) → Finalizado
+ *
+ * Se evalúa de "más tardío a más temprano" y se queda con el primer corte que
+ * ya pasó, así que una fecha faltante simplemente no genera ese corte (el
+ * evento salta directo a la fase siguiente que sí tenga fecha).
+ * Comparación por string YYYY-MM-DD (no Date) por la misma razón que hoyISO():
+ * evita corrimientos de huso horario.
+ */
+export function eventoEstadoAuto(evento: Pick<Evento, 'armadoInicio' | 'eventoInicio' | 'eventoFin' | 'desarme'>): EventoEstadoAuto {
+  const hoy = hoyISO()
+  const cutoffFinal = evento.desarme || evento.eventoFin
+  if (cutoffFinal && hoy > cutoffFinal) return 'Finalizado'
+  if (evento.desarme && hoy >= evento.desarme) return 'Desarme'
+  if (evento.eventoInicio && hoy >= evento.eventoInicio) return 'EnCurso'
+  if (evento.armadoInicio && hoy >= evento.armadoInicio) return 'Armado'
+  return 'EnDesarrollo'
 }

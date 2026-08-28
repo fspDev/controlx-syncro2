@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAppStore } from '@/store/useAppStore'
-import { formatCurrency, MEDIOS_PAGO, estadoLabel, ESTADO_COLORS } from '@/lib/utils'
+import { formatCurrency, MEDIOS_PAGO, proyectoEstadoLabel, PROYECTO_ESTADO_COLORS } from '@/lib/utils'
 import type { Cliente, Evento, MedioPago, Proyecto, RegistroAdmin } from '@/types'
 import { Wallet, User, Phone, Mail, MapPin, FileText, X, Calendar, Package, CheckSquare, Image, FolderOpen } from 'lucide-react'
 
@@ -273,8 +273,8 @@ function ProyectoDetailPanel({ evento, proyecto, cliente, usuarios, registro, ge
 
           {/* Estado + importe */}
           <div className="flex items-center gap-3">
-            <span className={`px-2.5 py-1 rounded-full text-xs font-medium border border-transparent ${ESTADO_COLORS[proyecto.estado].bg} ${ESTADO_COLORS[proyecto.estado].text}`}>
-              {estadoLabel(proyecto.estado)}
+            <span className={`px-2.5 py-1 rounded-full text-xs font-medium border border-transparent ${PROYECTO_ESTADO_COLORS[proyecto.estado].bg} ${PROYECTO_ESTADO_COLORS[proyecto.estado].text}`}>
+              {proyectoEstadoLabel(proyecto.estado)}
             </span>
             <span className="ml-auto text-lg font-bold text-gray-100">
               {formatCurrency(proyecto.importe)}

@@ -1,4 +1,8 @@
-export type EventoEstado = 'Negociacion' | 'Confirmado' | 'Armado' | 'Finalizado' | 'Cancelado'
+// Estado del proyecto/stand — lo cambia manualmente cualquier usuario.
+export type ProyectoEstado = 'Negociacion' | 'Confirmado' | 'Cancelado'
+// Estado del evento — 100% automático según la cronología (armado/evento/desarme
+// vs. hoy), nadie lo edita a mano. Ver eventoEstadoAuto() en lib/utils.ts.
+export type EventoEstadoAuto = 'EnDesarrollo' | 'Armado' | 'EnCurso' | 'Desarme' | 'Finalizado'
 export type UserRol = 'admin' | 'administrativo' | 'user'
 export type MedioPago = 'Transferencia' | 'Echeqs' | 'Retenciones' | 'Efectivo' | 'Cheques físicos'
 export type TrabajoEstado = 'Pendiente' | 'Cobrado'
@@ -26,7 +30,7 @@ export interface Tarea {
 export interface Proyecto {
   id: string
   clienteId: string
-  estado: EventoEstado
+  estado: ProyectoEstado
   responsableId?: string
   fabricacion: string
   importe: number

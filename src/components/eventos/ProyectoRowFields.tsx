@@ -3,7 +3,7 @@ import { useAppStore } from '@/store/useAppStore'
 import { Input } from '@/components/ui/Input'
 import { Textarea } from '@/components/ui/Textarea'
 import { Select } from '@/components/ui/Select'
-import { ESTADOS_EVENTO, estadoLabel } from '@/lib/utils'
+import { ESTADOS_PROYECTO, proyectoEstadoLabel } from '@/lib/utils'
 import { X } from 'lucide-react'
 import type { ProyectoFormData } from '@/components/eventos/ProyectoForm'
 
@@ -26,7 +26,7 @@ export function ProyectoRowFields({ value, onChange, onRemove }: ProyectoRowFiel
     { value: '', label: '— Sin asignar —' },
     ...usuarios.map(u => ({ value: u.id, label: u.displayName || u.username }))
   ]
-  const estadoOpts = ESTADOS_EVENTO.map(e => ({ value: e, label: estadoLabel(e) }))
+  const estadoOpts = ESTADOS_PROYECTO.map(e => ({ value: e, label: proyectoEstadoLabel(e) }))
 
   return (
     <div className="relative bg-[var(--bg)] border border-[var(--border)] rounded-xl p-4 space-y-3">

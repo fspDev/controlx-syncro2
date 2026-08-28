@@ -6,6 +6,7 @@ import { Dialog, ConfirmDialog } from '@/components/ui/Dialog'
 import { EventoForm } from '@/components/eventos/EventoForm'
 import { ProyectoForm } from '@/components/eventos/ProyectoForm'
 import { EstadoSelector } from '@/components/eventos/EstadoSelector'
+import { EventoEstadoBadge } from '@/components/eventos/EventoEstadoBadge'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import { uploadRender, deleteRender } from '@/lib/db'
 import type { Evento, Proyecto } from '@/types'
@@ -52,6 +53,7 @@ export function EventoDetailPage() {
         </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 mb-1 flex-wrap">
+            <EventoEstadoBadge evento={evento} />
             {tareasTotal > 0 && (
               <span className="text-xs text-gray-500">{tareasTotal - tareasPend}/{tareasTotal} tareas completadas</span>
             )}

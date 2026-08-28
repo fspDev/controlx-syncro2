@@ -1,9 +1,9 @@
 import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '@/store/useAppStore'
 import { Card } from '@/components/ui/Card'
-import { EstadoSelector } from '@/components/eventos/EstadoSelector'
-import { ESTADO_COLORS, estadoLabel, formatDate, proyectoClientesLabel } from '@/lib/utils'
-import type { EventoEstado, TareaUsuarioPrioridad } from '@/types'
+import { EventoEstadoBadge } from '@/components/eventos/EventoEstadoBadge'
+import { EVENTO_ESTADO_COLORS, ESTADOS_EVENTO_AUTO, eventoEstadoAuto, eventoEstadoAutoLabel, formatDate, proyectoClientesLabel } from '@/lib/utils'
+import type { EventoEstadoAuto, TareaUsuarioPrioridad } from '@/types'
 import { FolderKanban, CheckCircle2, Clock, AlertCircle, Users, Flag } from 'lucide-react'
 
 const PRIORIDAD_COLORS: Record<TareaUsuarioPrioridad, { text: string; label: string }> = {
@@ -12,25 +12,26 @@ const PRIORIDAD_COLORS: Record<TareaUsuarioPrioridad, { text: string; label: str
   baja:  { text: 'text-gray-500',  label: 'Baja' },
 }
 
-const ESTADO_ORDER: EventoEstado[] = ['Negociacion', 'Confirmado', 'Armado', 'Finalizado', 'Cancelado']
-
 export function DashboardPage() {
-  const { eventos, clientes, currentUser, tareasUsuario, updateProyecto } = useAppStore()
+  const { eventos, clientes, currentUser, tareasUsuario } = useAppStore()
   const navigate = useNavigate()
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  const proyectoActivo = (p: { estado: EventoEstado }) => p.estado !== 'Cancelado' && p.estado !== 'Finalizado'
+  // "Activo": no cancelado en su totalidad y no finalizado cronológicamente.
+  // Un evento recién creado sin stands todavía cuenta como activo.
+  const eventoActivo = (e: typeof eventos[0]) =>
+    eventoEstadoAuto(e) !== 'Finalizado' && (e.proyectos.length === 0 || e.proyectos.some(p => p.estado !== 'Cancelado'))
 
   const proximos = eventos
-    .filter(e => e.eventoInicio && e.proyectos.some(proyectoActivo) && new Date(e.eventoInicio) >= today)
+    .filter(e => e.eventoInicio && eventoActivo(e) && new Date(e.eventoInicio) >= today)
     .sort((a, b) => new Date(a.eventoInicio!).getTime() - new Date(b.eventoInicio!).getTime())
 
-  const estadoCounts = ESTADO_ORDER.reduce((acc, estado) => {
-    acc[estado] = eventos.flatMap(e => e.proyectos).filter(p => p.estado === estado).length
+  const estadoCounts = ESTADOS_EVENTO_AUTO.reduce((acc, estado) => {
+    acc[estado] = eventos.filter(e => eventoEstadoAuto(e) === estado).length
     return acc
-  }, {} as Record<EventoEstado, number>)
+  }, {} as Record<EventoEstadoAuto, number>)
 
   // Tareas de proyecto asignadas al usuario actual
   const tareasDeProyecto = eventos.flatMap(e =>
@@ -56,7 +57,7 @@ export function DashboardPage() {
   const totalTareasPendientes = tareasDeProyecto.length + tareasPersonalesPend.length
 
   const proxArmados = eventos
-    .filter(e => e.armadoInicio && e.proyectos.some(proyectoActivo))
+    .filter(e => e.armadoInicio && eventoActivo(e))
     .filter(e => {
       const d = new Date(e.armadoInicio!)
       const diff = Math.ceil((d.getTime() - today.getTime()) / 86400000)
@@ -78,7 +79,7 @@ export function DashboardPage() {
             <div>
               <p className="text-xs text-gray-500 mb-1">Eventos activos</p>
               <p className="text-2xl font-bold text-gray-100">
-                {eventos.filter(e => e.proyectos.some(proyectoActivo)).length}
+                {eventos.filter(eventoActivo).length}
               </p>
             </div>
             <div className="p-2 bg-brand-500/15 rounded-lg"><FolderKanban size={18} className="text-brand-400" /></div>
@@ -136,9 +137,7 @@ export function DashboardPage() {
                     )}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        {e.proyectos.map(p => (
-                          <EstadoSelector key={p.id} estado={p.estado} onChange={estado => updateProyecto(e.id, p.id, { estado })} />
-                        ))}
+                        <EventoEstadoBadge evento={e} />
                         {tareasPend > 0 && (
                           <span className="text-xs text-amber-400 flex items-center gap-1">
                             <AlertCircle size={11} />{tareasPend} tarea{tareasPend > 1 ? 's' : ''}
@@ -165,13 +164,13 @@ export function DashboardPage() {
           <div>
             <h2 className="text-sm font-semibold text-gray-300 mb-3">Por Estado</h2>
             <Card className="p-4 space-y-3">
-              {ESTADO_ORDER.slice(0, 4).map(estado => {
-                const cols = ESTADO_COLORS[estado]
+              {ESTADOS_EVENTO_AUTO.map(estado => {
+                const cols = EVENTO_ESTADO_COLORS[estado]
                 return (
                   <div key={estado} className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className={`w-2 h-2 rounded-full ${cols.dot}`} />
-                      <span className="text-sm text-gray-400">{estadoLabel(estado)}</span>
+                      <span className="text-sm text-gray-400">{eventoEstadoAutoLabel(estado)}</span>
                     </div>
                     <span className="text-sm font-medium text-gray-300">{estadoCounts[estado]}</span>
                   </div>

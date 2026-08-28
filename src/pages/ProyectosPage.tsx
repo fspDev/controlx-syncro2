@@ -4,30 +4,31 @@ import { useAppStore } from '@/store/useAppStore'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { NuevoEventoDialog } from '@/components/eventos/NuevoEventoDialog'
-import { EstadoSelector } from '@/components/eventos/EstadoSelector'
-import { ESTADO_COLORS, ESTADOS_EVENTO, estadoLabel, formatDate, proyectoClientesLabel, proyectoResponsablesLabel } from '@/lib/utils'
-import type { EventoEstado } from '@/types'
+import { EventoEstadoBadge } from '@/components/eventos/EventoEstadoBadge'
+import { EVENTO_ESTADO_COLORS, ESTADOS_EVENTO_AUTO, eventoEstadoAuto, eventoEstadoAutoLabel, formatDate, proyectoClientesLabel, proyectoResponsablesLabel } from '@/lib/utils'
+import type { EventoEstadoAuto } from '@/types'
 import { Plus, Filter, ChevronRight, AlertCircle } from 'lucide-react'
 
 export function ProyectosPage() {
-  const { eventos, clientes, usuarios, updateProyecto } = useAppStore()
+  const { eventos, clientes, usuarios } = useAppStore()
   const navigate = useNavigate()
   const [showNew, setShowNew] = useState(false)
-  const [filterEstados, setFilterEstados] = useState<Set<EventoEstado>>(
-    new Set(ESTADOS_EVENTO.filter(e => e !== 'Finalizado' && e !== 'Cancelado'))
+  const [filterEstados, setFilterEstados] = useState<Set<EventoEstadoAuto>>(
+    new Set(ESTADOS_EVENTO_AUTO.filter(e => e !== 'Finalizado'))
   )
   const [filterCliente, setFilterCliente] = useState('')
 
-  const toggleEstado = (estado: EventoEstado) => {
+  const toggleEstado = (estado: EventoEstadoAuto) => {
     setFilterEstados(prev => {
       const next = new Set(prev)
-      next.has(estado) ? next.delete(estado) : next.add(estado)
+      if (next.has(estado)) next.delete(estado)
+      else next.add(estado)
       return next
     })
   }
 
   const filtered = eventos.filter(e => {
-    if (filterEstados.size > 0 && !e.proyectos.some(p => filterEstados.has(p.estado))) return false
+    if (filterEstados.size > 0 && !filterEstados.has(eventoEstadoAuto(e))) return false
     if (filterCliente && !e.proyectos.some(p => p.clienteId === filterCliente)) return false
     return true
   }).sort((a, b) => {
@@ -48,8 +49,8 @@ export function ProyectosPage() {
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-3 flex-wrap">
           <Filter size={14} className="text-gray-500 shrink-0" />
-          {ESTADOS_EVENTO.map(estado => {
-            const cols = ESTADO_COLORS[estado]
+          {ESTADOS_EVENTO_AUTO.map(estado => {
+            const cols = EVENTO_ESTADO_COLORS[estado]
             const active = filterEstados.has(estado)
             return (
               <button
@@ -62,7 +63,7 @@ export function ProyectosPage() {
                 }`}
               >
                 <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${active ? cols.dot : 'bg-gray-600'}`} />
-                {estadoLabel(estado)}
+                {eventoEstadoAutoLabel(estado)}
               </button>
             )
           })}
@@ -103,10 +104,8 @@ export function ProyectosPage() {
                   <span className="text-sm font-medium text-gray-200 truncate">{e.titulo}</span>
                   {tareasPend > 0 && <AlertCircle size={13} className="text-amber-400 shrink-0" />}
                 </div>
-                <div className="flex gap-1 flex-wrap justify-end shrink-0">
-                  {e.proyectos.map(p => (
-                    <EstadoSelector key={p.id} estado={p.estado} onChange={estado => updateProyecto(e.id, p.id, { estado })} />
-                  ))}
+                <div className="shrink-0">
+                  <EventoEstadoBadge evento={e} />
                 </div>
               </div>
               <div className="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
@@ -160,11 +159,7 @@ export function ProyectosPage() {
                   <td className="px-4 py-3 text-sm text-gray-400 hidden lg:table-cell">{proyectoResponsablesLabel(e, usuarios)}</td>
                   <td className="px-4 py-3 text-sm text-gray-400">{formatDate(e.eventoInicio)}</td>
                   <td className="px-4 py-3">
-                    <div className="flex gap-1 flex-wrap">
-                      {e.proyectos.map(p => (
-                        <EstadoSelector key={p.id} estado={p.estado} onChange={estado => updateProyecto(e.id, p.id, { estado })} />
-                      ))}
-                    </div>
+                    <EventoEstadoBadge evento={e} />
                   </td>
                   <td className="px-4 py-3 text-gray-600"><ChevronRight size={15} /></td>
                 </tr>
@@ -178,15 +173,15 @@ export function ProyectosPage() {
       {/* Kanban por estado */}
       <div className="space-y-3">
         <h2 className="text-sm font-semibold text-gray-400">Vista por estado</h2>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {ESTADOS_EVENTO.slice(0,4).map(estado => {
-            const cols = ESTADO_COLORS[estado]
-            const count = eventos.flatMap(e => e.proyectos).filter(p => p.estado === estado).length
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+          {ESTADOS_EVENTO_AUTO.map(estado => {
+            const cols = EVENTO_ESTADO_COLORS[estado]
+            const count = eventos.filter(e => eventoEstadoAuto(e) === estado).length
             return (
               <div key={estado} className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-3">
                 <div className="flex items-center gap-2 mb-2">
                   <div className={`w-2 h-2 rounded-full ${cols.dot}`} />
-                  <span className="text-xs font-medium text-gray-400">{estadoLabel(estado)}</span>
+                  <span className="text-xs font-medium text-gray-400">{eventoEstadoAutoLabel(estado)}</span>
                   <Badge className={`${cols.bg} ${cols.text} ml-auto`}>{count}</Badge>
                 </div>
               </div>

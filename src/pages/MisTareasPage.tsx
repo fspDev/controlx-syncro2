@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '@/store/useAppStore'
 import { CheckSquare, Plus, X, Check, ChevronRight, Flag, Users } from 'lucide-react'
 import type { TareaUsuario, TareaUsuarioPrioridad } from '@/types'
+import { eventoEstadoAuto } from '@/lib/utils'
 
 const PRIORIDAD_COLORS: Record<TareaUsuarioPrioridad, { text: string; label: string }> = {
   alta:  { text: 'text-red-400',   label: 'Alta' },
@@ -24,7 +25,9 @@ export function MisTareasPage() {
   const [filtroEvento, setFiltroEvento] = useState('')
 
   const otrosUsuarios = usuarios.filter(u => u.id !== currentUser?.id)
-  const eventosActivos = eventos.filter(e => e.proyectos.some(p => p.estado !== 'Finalizado' && p.estado !== 'Cancelado'))
+  const eventosActivos = eventos.filter(e =>
+    eventoEstadoAuto(e) !== 'Finalizado' && (e.proyectos.length === 0 || e.proyectos.some(p => p.estado !== 'Cancelado'))
+  )
 
   const tareasFiltradas = tareasUsuario
     .filter(t => {
