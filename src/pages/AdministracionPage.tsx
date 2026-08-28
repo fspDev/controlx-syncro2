@@ -33,6 +33,12 @@ interface Filtros {
 
 const FILTROS_VACIOS: Filtros = { clienteId: '', concepto: '', fechaDesde: '', fechaHasta: '', soloPendientes: false, soloSinFacturar: false }
 
+// Los eventos anteriores a esta fecha ya se marcaron como cobrados/facturados
+// en bloque (ver commit de la migración) y no tienen que verse ni poder
+// tocarse desde esta sección — quedan afuera antes de cualquier filtro del
+// usuario, no solo ocultos por default.
+const CORTE_ADMINISTRACION = '2026-08-01'
+
 export function AdministracionPage() {
   const { currentUser, eventos, clientes, usuarios, registrosAdmin, getOrCreateRegistroAdmin, updateRegistroAdmin } = useAppStore()
   const [vista, setVista] = useState<Vista>('planilla')
@@ -50,9 +56,11 @@ export function AdministracionPage() {
   // evento más cercana primero — el objetivo es ver el flujo de caja que se
   // viene, no un historial. Sin fecha cargada quedan al final.
   const todasLasFilas: Fila[] = useMemo(() => {
-    const filas = eventos.flatMap(e => e.proyectos.map(p => ({
-      evento: e, proyecto: p, cliente: clientePorId(p.clienteId), registro: registroDe(p.id),
-    })))
+    const filas = eventos
+      .filter(e => !e.eventoInicio || e.eventoInicio >= CORTE_ADMINISTRACION)
+      .flatMap(e => e.proyectos.map(p => ({
+        evento: e, proyecto: p, cliente: clientePorId(p.clienteId), registro: registroDe(p.id),
+      })))
     return filas.sort((a, b) => {
       if (!a.evento.eventoInicio && !b.evento.eventoInicio) return 0
       if (!a.evento.eventoInicio) return 1
@@ -163,6 +171,7 @@ export function AdministracionPage() {
             <label htmlFor="filtro-admin-desde" className="text-xs text-gray-500">Desde</label>
             <input
               id="filtro-admin-desde" type="date"
+              min={CORTE_ADMINISTRACION}
               value={filtros.fechaDesde}
               onChange={e => setFiltros(f => ({ ...f, fechaDesde: e.target.value }))}
               className="bg-[var(--bg)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-sm text-gray-300 focus:outline-none"
