@@ -117,6 +117,15 @@ function proyectoFromFirestore(id: string, data: Record<string, unknown>): Proye
   }
 }
 
+// Las fechas del evento son YYYY-MM-DD en toda la app (inputs type="date",
+// eventoEstadoAuto, etc.). El formato legado v1 las guardaba como Timestamp
+// dentro de armado/fechaEvento; tsToIso() sobre un Timestamp devuelve el ISO
+// completo con hora ("...T00:00:00.000Z"), que un <input type="date"> no
+// acepta y renderiza en blanco. Se trunca siempre a los primeros 10 caracteres.
+function soloFecha(s: string): string | undefined {
+  return s ? s.slice(0, 10) : undefined
+}
+
 function eventoFromFirestore(id: string, data: Record<string, unknown>): Evento {
   const armado = (data.armado as Record<string, unknown>) || {}
   const fechaEvento = (data.fechaEvento as Record<string, unknown>) || {}
@@ -131,11 +140,11 @@ function eventoFromFirestore(id: string, data: Record<string, unknown>): Evento 
     titulo: (data.titulo as string) || '',
     lugar: (data.lugar as string) || '',
     proyectos,
-    armadoInicio: tsToIso(armado.start) || (data.armadoInicio as string) || undefined,
-    armadoFin: tsToIso(armado.end) || (data.armadoFin as string) || undefined,
-    eventoInicio: tsToIso(fechaEvento.start) || (data.eventoInicio as string) || undefined,
-    eventoFin: tsToIso(fechaEvento.end) || (data.eventoFin as string) || undefined,
-    desarme: tsToIso(data.desarme) || (data.desarme as string) || undefined,
+    armadoInicio: soloFecha(tsToIso(armado.start) || (data.armadoInicio as string) || ''),
+    armadoFin: soloFecha(tsToIso(armado.end) || (data.armadoFin as string) || ''),
+    eventoInicio: soloFecha(tsToIso(fechaEvento.start) || (data.eventoInicio as string) || ''),
+    eventoFin: soloFecha(tsToIso(fechaEvento.end) || (data.eventoFin as string) || ''),
+    desarme: soloFecha(tsToIso(data.desarme) || (data.desarme as string) || ''),
     carpetaServidor: (data.carpetaServidor as string) || undefined,
     renders: Array.isArray(data.renders) ? (data.renders as string[]) : [],
     createdAt: tsToIso(data.createdAt) || new Date().toISOString(),
