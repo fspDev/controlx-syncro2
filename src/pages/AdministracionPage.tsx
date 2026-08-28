@@ -10,7 +10,7 @@ import { MontoInput } from '@/components/ui/MontoInput'
 import type { Cliente, Evento, MedioPago, PagoAdmin, Proyecto, RegistroAdmin, Usuario } from '@/types'
 import {
   Wallet, User, Phone, Mail, MapPin, FileText, X, Calendar, Package, CheckSquare, Image, FolderOpen,
-  LayoutGrid, List, Plus, Trash2, ChevronDown, ChevronRight,
+  LayoutGrid, List, Plus, Trash2, ChevronDown, ChevronRight, Edit2, Check,
 } from 'lucide-react'
 
 type Vista = 'planilla' | 'clientes'
@@ -504,6 +504,11 @@ function ProyectoDetailPanel({ evento, proyecto, cliente, usuarios, registro, ge
   // "Confirmar pago", así se pueden cargar varios pagos seguidos sin que
   // cada tecleo dispare un guardado a mitad de completar el formulario.
   const [draft, setDraft] = useState<{ formaPago?: MedioPago; monto: number; fecha?: string }>({ monto: 0 })
+  // Edición de un pago ya registrado: se abre a pedido (no autoguarda cada
+  // tecleo) — mismo criterio que el borrador de pago nuevo, con su propio
+  // "Guardar cambios" / "Cancelar".
+  const [editandoId, setEditandoId] = useState<string | null>(null)
+  const [editDraft, setEditDraft] = useState<PagoAdmin | null>(null)
   const panelRef = useRef<HTMLDivElement>(null)
 
   // Ajuste de estado durante el render (no en un efecto). Cada campo se
@@ -535,23 +540,24 @@ function ProyectoDetailPanel({ evento, proyecto, cliente, usuarios, registro, ge
   }
 
   const commitPagos = (next: PagoAdmin[]) => { setPagos(next); updateRegistroAdmin(ensureId(), { pagos: next }) }
-  const eliminarPago = (id: string) => commitPagos(pagos.filter(p => p.id !== id))
-  const setPagoLocal = (id: string, patch: Partial<PagoAdmin>) => setPagos(prev => prev.map(p => p.id === id ? { ...p, ...patch } : p))
-  const commitPagoField = (id: string) => {
-    const actual = pagos.find(p => p.id === id)
-    const guardado = (registro?.pagos || []).find(p => p.id === id)
-    if (!actual || JSON.stringify(actual) === JSON.stringify(guardado)) return
-    updateRegistroAdmin(ensureId(), { pagos })
-  }
-  const setPagoInmediato = (id: string, patch: Partial<PagoAdmin>) => {
-    const next = pagos.map(p => p.id === id ? { ...p, ...patch } : p)
-    commitPagos(next)
+  const eliminarPago = (id: string) => {
+    commitPagos(pagos.filter(p => p.id !== id))
+    if (editandoId === id) { setEditandoId(null); setEditDraft(null) }
   }
 
   const confirmarPagoDraft = () => {
     if (draft.monto <= 0) return
     commitPagos([...pagos, { id: genId(), ...draft }])
     setDraft({ monto: 0 })
+  }
+
+  const iniciarEdicionPago = (p: PagoAdmin) => { setEditandoId(p.id); setEditDraft(p) }
+  const cancelarEdicionPago = () => { setEditandoId(null); setEditDraft(null) }
+  const guardarEdicionPago = () => {
+    if (!editDraft) return
+    commitPagos(pagos.map(p => p.id === editDraft.id ? editDraft : p))
+    setEditandoId(null)
+    setEditDraft(null)
   }
 
   const responsable = usuarios.find(u => u.id === proyecto.responsableId)
@@ -725,27 +731,23 @@ function ProyectoDetailPanel({ evento, proyecto, cliente, usuarios, registro, ge
               {pagos.length === 0 ? (
                 <p className="text-xs text-gray-600 italic">Sin pagos registrados.</p>
               ) : (
-                <div className="space-y-2">
-                  {pagos.map(pago => (
-                    <div key={pago.id} className="bg-[var(--bg)] border border-[var(--border)] rounded-lg p-2.5 space-y-2" onClick={e => e.stopPropagation()}>
-                      <div className="flex items-center gap-1.5">
-                        <select
-                          value={pago.formaPago || ''}
-                          onChange={e => setPagoInmediato(pago.id, { formaPago: (e.target.value || undefined) as MedioPago | undefined })}
-                          className="flex-1 bg-[var(--surface)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-xs text-gray-300 focus:outline-none cursor-pointer [&>option]:bg-white [&>option]:text-black"
-                        >
-                          <option value="">— Forma de pago —</option>
-                          {MEDIOS_PAGO.map(m => <option key={m} value={m}>{m}</option>)}
-                        </select>
-                        <button onClick={() => eliminarPago(pago.id)} className="p-1.5 text-gray-600 hover:text-red-400 cursor-pointer transition-colors shrink-0">
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
+                <div className="space-y-1.5">
+                  {pagos.map(pago => editandoId === pago.id && editDraft ? (
+                    // Edición: mismo formato que el borrador de pago nuevo, con
+                    // guardar/cancelar explícitos — no autoguarda por tecleo.
+                    <div key={pago.id} className="bg-[var(--bg)] border border-brand-500/40 rounded-lg p-2.5 space-y-2" onClick={e => e.stopPropagation()}>
+                      <select
+                        value={editDraft.formaPago || ''}
+                        onChange={e => setEditDraft(d => d && ({ ...d, formaPago: (e.target.value || undefined) as MedioPago | undefined }))}
+                        className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-xs text-gray-300 focus:outline-none cursor-pointer [&>option]:bg-white [&>option]:text-black"
+                      >
+                        <option value="">— Forma de pago —</option>
+                        {MEDIOS_PAGO.map(m => <option key={m} value={m}>{m}</option>)}
+                      </select>
                       <div className="flex items-center gap-1.5">
                         <MontoInput
-                          value={pago.monto}
-                          onChange={n => setPagoLocal(pago.id, { monto: n })}
-                          onBlur={() => commitPagoField(pago.id)}
+                          value={editDraft.monto}
+                          onChange={n => setEditDraft(d => d && ({ ...d, monto: n }))}
                           ariaLabel="Monto del pago"
                           placeholder="Monto"
                           blankWhenZero
@@ -753,10 +755,36 @@ function ProyectoDetailPanel({ evento, proyecto, cliente, usuarios, registro, ge
                         />
                         <input
                           type="date"
-                          value={pago.fecha || ''}
-                          onChange={e => setPagoInmediato(pago.id, { fecha: e.target.value || undefined })}
+                          value={editDraft.fecha || ''}
+                          onChange={e => setEditDraft(d => d && ({ ...d, fecha: e.target.value || undefined }))}
                           className="bg-[var(--surface)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-xs text-gray-300 focus:outline-none"
                         />
+                      </div>
+                      <div className="flex gap-1.5">
+                        <button onClick={cancelarEdicionPago} className="flex-1 px-3 py-1.5 text-xs text-gray-400 hover:text-gray-200 hover:bg-[var(--surface-2)] rounded-lg transition-colors cursor-pointer">
+                          Cancelar
+                        </button>
+                        <button onClick={guardarEdicionPago} className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 bg-brand-500 hover:bg-brand-600 text-white text-xs font-medium rounded-lg transition-colors cursor-pointer">
+                          <Check size={12} /> Guardar cambios
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    // Vista: el pago ya registrado se lista como un dato fijo,
+                    // no como un formulario en curso — editar es una acción aparte.
+                    <div key={pago.id} className="flex items-center gap-2 bg-[var(--bg)]/60 border border-[var(--border-s)] rounded-lg px-3 py-2" onClick={e => e.stopPropagation()}>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm text-gray-200 truncate">{pago.formaPago || '— Sin forma —'}</p>
+                        <p className="text-xs text-gray-600">{pago.fecha ? formatDate(pago.fecha) : 'Sin fecha'}</p>
+                      </div>
+                      <span className="text-sm font-semibold text-emerald-400 tabular-nums shrink-0">{formatCurrency(pago.monto)}</span>
+                      <div className="flex items-center gap-0.5 shrink-0">
+                        <button onClick={() => iniciarEdicionPago(pago)} className="p-1.5 text-gray-600 hover:text-brand-400 cursor-pointer transition-colors" title="Editar pago">
+                          <Edit2 size={13} />
+                        </button>
+                        <button onClick={() => eliminarPago(pago.id)} className="p-1.5 text-gray-600 hover:text-red-400 cursor-pointer transition-colors" title="Eliminar pago">
+                          <Trash2 size={13} />
+                        </button>
                       </div>
                     </div>
                   ))}
