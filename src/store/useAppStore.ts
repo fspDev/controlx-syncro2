@@ -503,7 +503,7 @@ export const useAppStore = create<AppState>()(
         const existing = get().registrosAdmin.find(r => r.proyectoId === proyectoId)
         if (existing) return existing.id
         const id = genId()
-        const r: RegistroAdmin = { id, proyectoId, concepto: '', formasPago: [], pagado: false, facturado: false, updatedAt: new Date().toISOString() }
+        const r: RegistroAdmin = { id, proyectoId, concepto: '', pagos: [], facturado: false, updatedAt: new Date().toISOString() }
         set(s => ({ registrosAdmin: [...s.registrosAdmin, r] }))
         saveRegistroAdmin(r).catch(console.error)
         return id

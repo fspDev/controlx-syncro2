@@ -13,7 +13,7 @@ import {
 } from 'firebase/firestore'
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 import { db, storage } from '@/lib/firebase'
-import type { Evento, Proyecto, Tarea, TrabajoExterno, Usuario, Cliente, TareaUsuario, RegistroAdmin, MedioPago, Proveedor, MovimientoProveedor } from '@/types'
+import type { Evento, Proyecto, Tarea, TrabajoExterno, Usuario, Cliente, TareaUsuario, RegistroAdmin, PagoAdmin, MedioPago, Proveedor, MovimientoProveedor } from '@/types'
 import type { TareaPlantilla } from '@/store/useAppStore'
 import { genId } from '@/lib/utils'
 
@@ -267,17 +267,26 @@ export async function deleteTrabajoDoc(id: string): Promise<void> {
 
 // ─── Administración ─────────────────────────────────────────────────────────────
 
+function pagosAdminFromFirestore(pagos: unknown): PagoAdmin[] {
+  return (Array.isArray(pagos) ? pagos : []).map((p: Record<string, unknown>) => ({
+    id: (p.id as string) || genId(),
+    formaPago: (p.formaPago as MedioPago) || undefined,
+    monto: Number(p.monto ?? 0),
+    fecha: (p.fecha as string) || undefined,
+  }))
+}
+
+// `formasPago`/`pagado` son campos legados (v1: forma de pago única por
+// registro y un booleano manual) — se ignoran a propósito. El registro
+// migró a `pagos` (varios pagos parciales, cada uno con su propia forma de
+// pago) y el estado pagado/parcial/pendiente ahora se deriva comparando la
+// suma de `pagos` contra el importe del proyecto (ver estadoPagoAdmin()).
 function registroAdminFromFirestore(id: string, data: Record<string, unknown>): RegistroAdmin {
-  // formasPago viejo era un único valor (formaPago); si existe se envuelve en array
-  const formasPago = Array.isArray(data.formasPago)
-    ? data.formasPago as RegistroAdmin['formasPago']
-    : data.formaPago ? [data.formaPago as MedioPago] : []
   return {
     id,
     proyectoId: (data.proyectoId as string) || '',
     concepto: (data.concepto as string) || '',
-    formasPago,
-    pagado: Boolean(data.pagado),
+    pagos: pagosAdminFromFirestore(data.pagos),
     facturado: Boolean(data.facturado),
     updatedAt: tsToIso(data.updatedAt) || new Date().toISOString(),
   }

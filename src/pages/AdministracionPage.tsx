@@ -1,99 +1,205 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAppStore } from '@/store/useAppStore'
-import { formatCurrency, MEDIOS_PAGO, proyectoEstadoLabel, PROYECTO_ESTADO_COLORS } from '@/lib/utils'
-import type { Cliente, Evento, MedioPago, Proyecto, RegistroAdmin } from '@/types'
-import { Wallet, User, Phone, Mail, MapPin, FileText, X, Calendar, Package, CheckSquare, Image, FolderOpen } from 'lucide-react'
+import {
+  formatCurrency, formatDate, formatMiles, soloDigitos, montoDesdeDigitos, genId,
+  montoPagadoAdmin, estadoPagoAdmin, ESTADO_PAGO_ADMIN_COLORS,
+  proyectoEstadoLabel, PROYECTO_ESTADO_COLORS, MEDIOS_PAGO,
+} from '@/lib/utils'
+import type { Cliente, Evento, MedioPago, PagoAdmin, Proyecto, RegistroAdmin, Usuario } from '@/types'
+import {
+  Wallet, User, Phone, Mail, MapPin, FileText, X, Calendar, Package, CheckSquare, Image, FolderOpen,
+  LayoutGrid, List, Plus, Trash2, ChevronDown, ChevronRight,
+} from 'lucide-react'
 
-type Vista = 'todos' | 'curso' | 'completado'
+type Vista = 'planilla' | 'clientes'
 type Seleccion = { evento: Evento; proyecto: Proyecto } | null
+
+interface Fila {
+  evento: Evento
+  proyecto: Proyecto
+  cliente?: Cliente
+  registro?: RegistroAdmin
+}
+
+interface Filtros {
+  clienteId: string
+  concepto: string
+  fechaDesde: string
+  fechaHasta: string
+  soloPendientes: boolean
+  soloSinFacturar: boolean
+}
+
+const FILTROS_VACIOS: Filtros = { clienteId: '', concepto: '', fechaDesde: '', fechaHasta: '', soloPendientes: false, soloSinFacturar: false }
 
 export function AdministracionPage() {
   const { currentUser, eventos, clientes, usuarios, registrosAdmin, getOrCreateRegistroAdmin, updateRegistroAdmin } = useAppStore()
-  const [vista, setVista] = useState<Vista>('curso')
+  const [vista, setVista] = useState<Vista>('planilla')
   const [seleccion, setSeleccion] = useState<Seleccion>(null)
-
-  if (currentUser?.rol !== 'admin' && currentUser?.rol !== 'administrativo') return <Navigate to="/dashboard" replace />
+  const [filtros, setFiltros] = useState<Filtros>(FILTROS_VACIOS)
 
   const registroDe = (proyectoId: string) => registrosAdmin.find(r => r.proyectoId === proyectoId)
-  const estaCompletado = (proyectoId: string) => {
-    const r = registroDe(proyectoId)
-    return !!r?.pagado && !!r?.facturado
-  }
+  // Algunos clienteId legados quedaron con una mayúscula distinta a la del id
+  // real del cliente (ej. "Vespasiani" vs "vespasiani") — sin este fallback,
+  // esos proyectos aparecerían sin cliente pese a tenerlo cargado.
+  const clientePorId = (clienteId: string) =>
+    clientes.find(c => c.id === clienteId) || clientes.find(c => c.id.toLowerCase() === clienteId.toLowerCase())
 
-  const filas = eventos
-    .flatMap(e => e.proyectos.map(p => ({ evento: e, proyecto: p })))
-    .filter(({ proyecto }) => {
-      if (vista === 'todos') return true
-      return vista === 'completado' ? estaCompletado(proyecto.id) : !estaCompletado(proyecto.id)
+  // Todas las filas (proyecto = fila administrativa), ordenadas por fecha de
+  // evento más cercana primero — el objetivo es ver el flujo de caja que se
+  // viene, no un historial. Sin fecha cargada quedan al final.
+  const todasLasFilas: Fila[] = useMemo(() => {
+    const filas = eventos.flatMap(e => e.proyectos.map(p => ({
+      evento: e, proyecto: p, cliente: clientePorId(p.clienteId), registro: registroDe(p.id),
+    })))
+    return filas.sort((a, b) => {
+      if (!a.evento.eventoInicio && !b.evento.eventoInicio) return 0
+      if (!a.evento.eventoInicio) return 1
+      if (!b.evento.eventoInicio) return -1
+      return a.evento.eventoInicio < b.evento.eventoInicio ? -1 : a.evento.eventoInicio > b.evento.eventoInicio ? 1 : 0
     })
-    .sort((a, b) => new Date(b.evento.createdAt).getTime() - new Date(a.evento.createdAt).getTime())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventos, clientes, registrosAdmin])
 
-  const total = filas.reduce((s, f) => s + f.proyecto.importe, 0)
+  const hayFiltrosActivos = filtros.clienteId !== '' || filtros.concepto.trim() !== '' || filtros.fechaDesde !== '' ||
+    filtros.fechaHasta !== '' || filtros.soloPendientes || filtros.soloSinFacturar
+
+  const filtradas = todasLasFilas.filter(({ evento, proyecto, cliente, registro }) => {
+    if (filtros.clienteId && cliente?.id !== filtros.clienteId) return false
+    if (filtros.concepto.trim() && !(registro?.concepto || '').toLowerCase().includes(filtros.concepto.trim().toLowerCase())) return false
+    if (filtros.fechaDesde && (!evento.eventoInicio || evento.eventoInicio < filtros.fechaDesde)) return false
+    if (filtros.fechaHasta && (!evento.eventoInicio || evento.eventoInicio > filtros.fechaHasta)) return false
+    const estado = estadoPagoAdmin(registro?.pagos || [], proyecto.importe)
+    if (filtros.soloPendientes && estado === 'Pagado') return false
+    if (filtros.soloSinFacturar && registro?.facturado) return false
+    return true
+  })
+
+  const totales = useMemo(() => {
+    const total = filtradas.reduce((s, f) => s + f.proyecto.importe, 0)
+    const cobrado = filtradas.reduce((s, f) => s + Math.min(montoPagadoAdmin(f.registro?.pagos || []), f.proyecto.importe), 0)
+    return { total, cobrado, pendiente: total - cobrado, cantidad: filtradas.length }
+  }, [filtradas])
+
+  const abrir = (evento: Evento, proyecto: Proyecto) => setSeleccion(s => s?.proyecto.id === proyecto.id ? null : { evento, proyecto })
+
+  // El early-return de permisos va después de todos los hooks: si estuviera
+  // antes, un usuario sin acceso vería un orden de hooks distinto al de un
+  // admin en el próximo render (viola las reglas de hooks).
+  if (currentUser?.rol !== 'admin' && currentUser?.rol !== 'administrativo') return <Navigate to="/dashboard" replace />
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">
           <Wallet size={20} className="text-brand-400" />
           <h1 className="text-xl font-bold text-gray-100">Administración</h1>
         </div>
-        <div className="text-right">
-          <p className="text-xs text-gray-500">Total importes</p>
-          <p className="text-lg font-bold text-gray-100">{formatCurrency(total)}</p>
-        </div>
-      </div>
-
-      <div className="flex bg-[var(--surface)] border border-[var(--border)] rounded-lg p-0.5 w-fit">
-        {(['todos', 'curso', 'completado'] as Vista[]).map(v => (
+        <div className="flex items-center bg-[var(--surface)] border border-[var(--border)] rounded-lg p-0.5">
           <button
-            key={v}
-            onClick={() => setVista(v)}
-            className={`px-3 py-1 rounded-md text-sm cursor-pointer transition-all ${
-              vista === v ? 'bg-[var(--surface-2)] text-gray-100' : 'text-gray-500 hover:text-gray-300'
-            }`}
+            onClick={() => setVista('planilla')}
+            title="Vista planilla"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all cursor-pointer ${vista === 'planilla' ? 'bg-brand-500/20 text-brand-400' : 'text-gray-500 hover:text-gray-300'}`}
           >
-            {v === 'todos' ? 'Todos' : v === 'curso' ? 'En curso' : 'Completado'}
+            <List size={14} /> Planilla
           </button>
-        ))}
-      </div>
-
-      <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[860px]">
-            <thead>
-              <tr className="border-b border-[var(--border)]">
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Evento</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Importe</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Concepto</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Forma de Pago</th>
-                <th className="text-center px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Pagado</th>
-                <th className="text-center px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Facturado</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--border-s)]">
-              {filas.length === 0 ? (
-                <tr><td colSpan={7} className="px-4 py-12 text-center text-gray-500 text-sm">
-                  {vista === 'completado' ? 'No hay proyectos completados' : vista === 'curso' ? 'No hay proyectos en curso' : 'No hay proyectos aún'}
-                </td></tr>
-              ) : filas.map(({ evento, proyecto }) => (
-                <FilaAdministracion
-                  key={proyecto.id}
-                  evento={evento}
-                  proyecto={proyecto}
-                  cliente={clientes.find(c => c.id === proyecto.clienteId)}
-                  registro={registroDe(proyecto.id)}
-                  selected={seleccion?.proyecto.id === proyecto.id}
-                  onSelect={() => setSeleccion(s => s?.proyecto.id === proyecto.id ? null : { evento, proyecto })}
-                  getOrCreateRegistroAdmin={getOrCreateRegistroAdmin}
-                  updateRegistroAdmin={updateRegistroAdmin}
-                />
-              ))}
-            </tbody>
-          </table>
+          <button
+            onClick={() => setVista('clientes')}
+            title="Vista por clientes"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all cursor-pointer ${vista === 'clientes' ? 'bg-brand-500/20 text-brand-400' : 'text-gray-500 hover:text-gray-300'}`}
+          >
+            <LayoutGrid size={14} /> Clientes
+          </button>
         </div>
       </div>
+
+      {/* Métricas de resumen */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4">
+          <p className="text-xs text-gray-500 mb-1">Total</p>
+          <p className="text-lg font-bold text-gray-100 tabular-nums">{formatCurrency(totales.total)}</p>
+        </div>
+        <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4">
+          <p className="text-xs text-gray-500 mb-1">Cobrado</p>
+          <p className="text-lg font-bold text-emerald-400 tabular-nums">{formatCurrency(totales.cobrado)}</p>
+        </div>
+        <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4">
+          <p className="text-xs text-gray-500 mb-1">Pendiente</p>
+          <p className="text-lg font-bold text-red-400 tabular-nums">{formatCurrency(totales.pendiente)}</p>
+        </div>
+        <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4">
+          <p className="text-xs text-gray-500 mb-1">Proyectos</p>
+          <p className="text-lg font-bold text-gray-200 tabular-nums">{totales.cantidad}</p>
+        </div>
+      </div>
+
+      {/* Filtros */}
+      <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4 flex flex-col gap-3">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex flex-col gap-1">
+            <label htmlFor="filtro-admin-cliente" className="text-xs text-gray-500">Cliente</label>
+            <select
+              id="filtro-admin-cliente"
+              value={filtros.clienteId}
+              onChange={e => setFiltros(f => ({ ...f, clienteId: e.target.value }))}
+              className="bg-[var(--bg)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-sm text-gray-300 focus:outline-none cursor-pointer [&>option]:bg-white [&>option]:text-black"
+            >
+              <option value="">Todos los clientes</option>
+              {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="filtro-admin-concepto" className="text-xs text-gray-500">Concepto contiene</label>
+            <input
+              id="filtro-admin-concepto"
+              value={filtros.concepto}
+              onChange={e => setFiltros(f => ({ ...f, concepto: e.target.value }))}
+              placeholder="Buscar..."
+              className="bg-[var(--bg)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-sm text-gray-300 placeholder:text-gray-600 focus:outline-none w-40"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="filtro-admin-desde" className="text-xs text-gray-500">Desde</label>
+            <input
+              id="filtro-admin-desde" type="date"
+              value={filtros.fechaDesde}
+              onChange={e => setFiltros(f => ({ ...f, fechaDesde: e.target.value }))}
+              className="bg-[var(--bg)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-sm text-gray-300 focus:outline-none"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="filtro-admin-hasta" className="text-xs text-gray-500">Hasta</label>
+            <input
+              id="filtro-admin-hasta" type="date"
+              value={filtros.fechaHasta}
+              onChange={e => setFiltros(f => ({ ...f, fechaHasta: e.target.value }))}
+              className="bg-[var(--bg)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-sm text-gray-300 focus:outline-none"
+            />
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-4">
+          <label className="flex items-center gap-1.5 text-sm text-gray-400 cursor-pointer">
+            <input type="checkbox" checked={filtros.soloPendientes} onChange={e => setFiltros(f => ({ ...f, soloPendientes: e.target.checked }))} className="accent-brand-500 cursor-pointer" />
+            Solo pendientes de cobro
+          </label>
+          <label className="flex items-center gap-1.5 text-sm text-gray-400 cursor-pointer">
+            <input type="checkbox" checked={filtros.soloSinFacturar} onChange={e => setFiltros(f => ({ ...f, soloSinFacturar: e.target.checked }))} className="accent-brand-500 cursor-pointer" />
+            Solo sin facturar
+          </label>
+          {hayFiltrosActivos && (
+            <button onClick={() => setFiltros(FILTROS_VACIOS)} className="flex items-center gap-1 text-xs text-gray-500 hover:text-brand-400 cursor-pointer transition-colors ml-auto">
+              <X size={12} /> Limpiar filtros
+            </button>
+          )}
+        </div>
+      </div>
+
+      {vista === 'planilla' ? (
+        <PlanillaView filas={filtradas} seleccion={seleccion} onSelect={abrir} getOrCreateRegistroAdmin={getOrCreateRegistroAdmin} updateRegistroAdmin={updateRegistroAdmin} hayFiltrosActivos={hayFiltrosActivos} onLimpiar={() => setFiltros(FILTROS_VACIOS)} />
+      ) : (
+        <ClientesView filas={filtradas} seleccion={seleccion} onSelect={abrir} hayFiltrosActivos={hayFiltrosActivos} onLimpiar={() => setFiltros(FILTROS_VACIOS)} />
+      )}
 
       {seleccion && (
         <ProyectoDetailPanel
@@ -111,18 +217,106 @@ export function AdministracionPage() {
   )
 }
 
-function FilaAdministracion({ evento, proyecto, cliente, registro, selected, onSelect, getOrCreateRegistroAdmin, updateRegistroAdmin }: {
-  evento: Pick<Evento, 'id' | 'titulo'>
+// ─── Vista planilla ───────────────────────────────────────────────────────────
+
+function PlanillaView({ filas, seleccion, onSelect, getOrCreateRegistroAdmin, updateRegistroAdmin, hayFiltrosActivos, onLimpiar }: {
+  filas: Fila[]
+  seleccion: Seleccion
+  onSelect: (evento: Evento, proyecto: Proyecto) => void
+  getOrCreateRegistroAdmin: (proyectoId: string) => string
+  updateRegistroAdmin: (id: string, data: Partial<Omit<RegistroAdmin, 'id' | 'proyectoId'>>) => void
+  hayFiltrosActivos: boolean
+  onLimpiar: () => void
+}) {
+  const usuarios = useAppStore(s => s.usuarios)
+  const responsableNombre = (id?: string) => {
+    if (!id) return '—'
+    const u = usuarios.find(x => x.id === id)
+    return u ? (u.displayName || u.username) : '—'
+  }
+
+  if (filas.length === 0) {
+    return (
+      <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-12 text-center text-gray-500 text-sm">
+        Ningún proyecto coincide con los filtros aplicados.
+        {hayFiltrosActivos && <> <button onClick={onLimpiar} className="text-brand-400 hover:text-brand-300 cursor-pointer underline">Limpiar filtros</button></>}
+      </div>
+    )
+  }
+
+  return (
+    <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[960px]">
+          <thead>
+            <tr className="bg-[var(--surface-2)]">
+              <Th>Cliente</Th>
+              <Th>Evento</Th>
+              <Th>Fecha</Th>
+              <Th>Responsable</Th>
+              <Th align="right">Monto</Th>
+              <Th>Concepto</Th>
+              <Th align="center">Estado</Th>
+              <Th align="center">Facturado</Th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[var(--border-s)]">
+            {filas.map(({ evento, proyecto, cliente, registro }) => (
+              <FilaAdministracion
+                key={proyecto.id}
+                evento={evento}
+                proyecto={proyecto}
+                cliente={cliente}
+                registro={registro}
+                responsableNombre={responsableNombre(proyecto.responsableId)}
+                selected={seleccion?.proyecto.id === proyecto.id}
+                onSelect={() => onSelect(evento, proyecto)}
+                getOrCreateRegistroAdmin={getOrCreateRegistroAdmin}
+                updateRegistroAdmin={updateRegistroAdmin}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+function Th({ children, align = 'left' }: { children?: React.ReactNode; align?: 'left' | 'right' | 'center' }) {
+  return (
+    <th className={`px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-[var(--border)] ${
+      align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : 'text-left'
+    }`}>
+      {children}
+    </th>
+  )
+}
+
+function EstadoPagoBadge({ pagos, importe }: { pagos: PagoAdmin[]; importe: number }) {
+  const estado = estadoPagoAdmin(pagos, importe)
+  const cols = ESTADO_PAGO_ADMIN_COLORS[estado]
+  return <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${cols.bg} ${cols.text}`}>{estado}</span>
+}
+
+function FilaAdministracion({ evento, proyecto, cliente, registro, responsableNombre, selected, onSelect, getOrCreateRegistroAdmin, updateRegistroAdmin }: {
+  evento: Pick<Evento, 'id' | 'titulo' | 'eventoInicio'>
   proyecto: Pick<Proyecto, 'id' | 'importe'>
   cliente?: Cliente
   registro?: RegistroAdmin
+  responsableNombre: string
   selected: boolean
   onSelect: () => void
   getOrCreateRegistroAdmin: (proyectoId: string) => string
   updateRegistroAdmin: (id: string, data: Partial<Omit<RegistroAdmin, 'id' | 'proyectoId'>>) => void
 }) {
   const [concepto, setConcepto] = useState(registro?.concepto || '')
-  const formasPago = registro?.formasPago || []
+  // Ajuste de estado durante el render (no en un efecto): si el concepto
+  // guardado cambió desde afuera, resincroniza el input antes de pintar.
+  const [conceptoSincronizado, setConceptoSincronizado] = useState(registro?.concepto)
+  if (registro?.concepto !== conceptoSincronizado) {
+    setConceptoSincronizado(registro?.concepto)
+    setConcepto(registro?.concepto || '')
+  }
 
   const ensureId = () => registro?.id || getOrCreateRegistroAdmin(proyecto.id)
 
@@ -131,62 +325,23 @@ function FilaAdministracion({ evento, proyecto, cliente, registro, selected, onS
     updateRegistroAdmin(ensureId(), { concepto })
   }
 
-  const toggleFormaPago = (forma: MedioPago) => {
-    const next = formasPago.includes(forma) ? formasPago.filter(f => f !== forma) : [...formasPago, forma]
-    updateRegistroAdmin(ensureId(), { formasPago: next })
-  }
-
   return (
-    <tr
-      onClick={onSelect}
-      className={`cursor-pointer transition-colors ${selected ? 'bg-brand-500/10' : 'hover:bg-[var(--surface-h)]'}`}
-    >
-      <td className="px-4 py-3">
-        <span className="text-sm font-medium text-gray-200">
-          {evento.titulo}
-        </span>
-      </td>
-      <td className="px-4 py-3 text-sm text-gray-400">
-        <ClienteInfo cliente={cliente} />
-      </td>
-      <td className="px-4 py-3 text-sm font-medium text-gray-300">{formatCurrency(proyecto.importe)}</td>
+    <tr onClick={onSelect} className={`cursor-pointer transition-colors ${selected ? 'bg-brand-500/10' : 'hover:bg-[var(--surface-h)]'}`}>
+      <td className="px-4 py-3 text-sm text-gray-300">{cliente?.nombre || '—'}</td>
+      <td className="px-4 py-3 text-sm font-medium text-gray-200">{evento.titulo}</td>
+      <td className="px-4 py-3 text-sm text-gray-400">{formatDate(evento.eventoInicio)}</td>
+      <td className="px-4 py-3 text-sm text-gray-400">{responsableNombre}</td>
+      <td className="px-4 py-3 text-sm font-medium text-gray-300 text-right tabular-nums">{formatCurrency(proyecto.importe)}</td>
       <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
         <input
           value={concepto}
           onChange={e => setConcepto(e.target.value)}
           onBlur={handleConceptoBlur}
-          placeholder="Concepto..."
+          placeholder="Concepto de factura..."
           className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-sm text-gray-200 placeholder:text-gray-600 focus:border-brand-500/50 focus:outline-none transition-all"
         />
       </td>
-      <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-        <div className="flex flex-wrap gap-1">
-          {MEDIOS_PAGO.map(forma => {
-            const active = formasPago.includes(forma as MedioPago)
-            return (
-              <button
-                key={forma}
-                onClick={() => toggleFormaPago(forma as MedioPago)}
-                className={`px-2 py-1 rounded-full text-xs font-medium border transition-all cursor-pointer ${
-                  active
-                    ? 'bg-brand-500/15 text-brand-400 border-brand-500/40'
-                    : 'bg-transparent text-gray-500 border-[var(--border)] hover:border-gray-500'
-                }`}
-              >
-                {forma}
-              </button>
-            )
-          })}
-        </div>
-      </td>
-      <td className="px-4 py-3 text-center" onClick={e => e.stopPropagation()}>
-        <input
-          type="checkbox"
-          checked={registro?.pagado || false}
-          onChange={e => updateRegistroAdmin(ensureId(), { pagado: e.target.checked })}
-          className="w-4 h-4 accent-brand-500 cursor-pointer"
-        />
-      </td>
+      <td className="px-4 py-3 text-center"><EstadoPagoBadge pagos={registro?.pagos || []} importe={proyecto.importe} /></td>
       <td className="px-4 py-3 text-center" onClick={e => e.stopPropagation()}>
         <input
           type="checkbox"
@@ -199,28 +354,161 @@ function FilaAdministracion({ evento, proyecto, cliente, registro, selected, onS
   )
 }
 
+// ─── Vista por clientes ───────────────────────────────────────────────────────
+
+function ClientesView({ filas, seleccion, onSelect, hayFiltrosActivos, onLimpiar }: {
+  filas: Fila[]
+  seleccion: Seleccion
+  onSelect: (evento: Evento, proyecto: Proyecto) => void
+  hayFiltrosActivos: boolean
+  onLimpiar: () => void
+}) {
+  const [abiertos, setAbiertos] = useState<Set<string>>(new Set())
+  const toggle = (clienteId: string) => setAbiertos(prev => {
+    const next = new Set(prev)
+    if (next.has(clienteId)) next.delete(clienteId)
+    else next.add(clienteId)
+    return next
+  })
+
+  // Agrupa preservando el orden cronológico ya aplicado en `filas` — la
+  // tarjeta de cada cliente queda ubicada según su evento más próximo.
+  const grupos = useMemo(() => {
+    const porCliente = new Map<string, { cliente?: Cliente; filas: Fila[] }>()
+    for (const f of filas) {
+      // Agrupa por el id real del cliente ya resuelto (f.cliente), no por el
+      // clienteId crudo del proyecto — así dos proyectos con distinta
+      // mayúscula en el mismo cliente legado no terminan en tarjetas separadas.
+      const key = f.cliente?.id || '—sin-cliente—'
+      if (!porCliente.has(key)) porCliente.set(key, { cliente: f.cliente, filas: [] })
+      porCliente.get(key)!.filas.push(f)
+    }
+    return [...porCliente.entries()].map(([clienteId, g]) => ({ clienteId, ...g }))
+  }, [filas])
+
+  if (grupos.length === 0) {
+    return (
+      <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-12 text-center text-gray-500 text-sm">
+        Ningún cliente coincide con los filtros aplicados.
+        {hayFiltrosActivos && <> <button onClick={onLimpiar} className="text-brand-400 hover:text-brand-300 cursor-pointer underline">Limpiar filtros</button></>}
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-3">
+      {grupos.map(({ clienteId, cliente, filas: filasCliente }) => (
+        <ClienteCard
+          key={clienteId}
+          cliente={cliente}
+          filas={filasCliente}
+          open={abiertos.has(clienteId)}
+          onToggle={() => toggle(clienteId)}
+          seleccion={seleccion}
+          onSelect={onSelect}
+        />
+      ))}
+    </div>
+  )
+}
+
+function ClienteCard({ cliente, filas, open, onToggle, seleccion, onSelect }: {
+  cliente?: Cliente
+  filas: Fila[]
+  open: boolean
+  onToggle: () => void
+  seleccion: Seleccion
+  onSelect: (evento: Evento, proyecto: Proyecto) => void
+}) {
+  const total = filas.reduce((s, f) => s + f.proyecto.importe, 0)
+  const cobrado = filas.reduce((s, f) => s + Math.min(montoPagadoAdmin(f.registro?.pagos || []), f.proyecto.importe), 0)
+  const pendiente = total - cobrado
+  const proximaFecha = filas.find(f => f.evento.eventoInicio)?.evento.eventoInicio
+
+  return (
+    <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl overflow-hidden">
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center gap-4 p-4 hover:bg-[var(--surface-h)] transition-colors cursor-pointer text-left"
+      >
+        <div className="w-9 h-9 rounded-xl bg-brand-500/15 border border-brand-500/20 flex items-center justify-center shrink-0">
+          <span className="text-xs font-bold text-brand-400">{(cliente?.nombre || '—').slice(0, 2).toUpperCase()}</span>
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-gray-200 text-sm truncate">{cliente?.nombre || '— Sin cliente —'}</p>
+          <p className="text-xs text-gray-600">{filas.length} evento{filas.length !== 1 ? 's' : ''}{proximaFecha ? ` · próximo ${formatDate(proximaFecha)}` : ''}</p>
+        </div>
+        <div className="hidden sm:flex items-center gap-4 shrink-0">
+          <div className="text-right">
+            <p className="text-xs text-gray-500">Cobrado</p>
+            <p className="text-sm font-semibold text-emerald-400 tabular-nums">{formatCurrency(cobrado)}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-gray-500">Pendiente</p>
+            <p className="text-sm font-semibold text-red-400 tabular-nums">{formatCurrency(pendiente)}</p>
+          </div>
+        </div>
+        {open ? <ChevronDown size={16} className="text-gray-500 shrink-0" /> : <ChevronRight size={16} className="text-gray-500 shrink-0" />}
+      </button>
+
+      {open && (
+        <div className="border-t border-[var(--border)] divide-y divide-[var(--border-s)]">
+          {filas.map(({ evento, proyecto, registro }) => {
+            const activo = seleccion?.proyecto.id === proyecto.id
+            return (
+              <button
+                key={proyecto.id}
+                onClick={() => onSelect(evento, proyecto)}
+                className={`w-full flex items-center gap-3 px-4 py-3 text-left cursor-pointer transition-colors ${activo ? 'bg-brand-500/10' : 'hover:bg-[var(--surface-h)]'}`}
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-gray-200 truncate">{evento.titulo}</p>
+                  <p className="text-xs text-gray-500">{formatDate(evento.eventoInicio)}</p>
+                </div>
+                <span className="text-sm text-gray-300 tabular-nums shrink-0">{formatCurrency(proyecto.importe)}</span>
+                <div className="shrink-0"><EstadoPagoBadge pagos={registro?.pagos || []} importe={proyecto.importe} /></div>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Panel de detalle + pagos ─────────────────────────────────────────────────
+
 function ProyectoDetailPanel({ evento, proyecto, cliente, usuarios, registro, getOrCreateRegistroAdmin, updateRegistroAdmin, onClose }: {
   evento: Evento
   proyecto: Proyecto
   cliente?: Cliente
-  usuarios: import('@/types').Usuario[]
+  usuarios: Usuario[]
   registro?: RegistroAdmin
   getOrCreateRegistroAdmin: (proyectoId: string) => string
   updateRegistroAdmin: (id: string, data: Partial<Omit<RegistroAdmin, 'id' | 'proyectoId'>>) => void
   onClose: () => void
 }) {
   const [concepto, setConcepto] = useState(registro?.concepto || '')
-  const formasPago = registro?.formasPago || []
+  const [pagos, setPagos] = useState<PagoAdmin[]>(registro?.pagos || [])
   const panelRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
+  // Ajuste de estado durante el render (no en un efecto). Cada campo se
+  // resincroniza solo cuando SU propio valor guardado cambia — comparar el
+  // registro completo haría que confirmar un pago (que crea un nuevo objeto
+  // registro) pisara texto de concepto todavía sin confirmar (onBlur).
+  const [conceptoSincronizado, setConceptoSincronizado] = useState(registro?.concepto)
+  if (registro?.concepto !== conceptoSincronizado) {
+    setConceptoSincronizado(registro?.concepto)
     setConcepto(registro?.concepto || '')
-  }, [registro?.concepto])
+  }
+  const [pagosSincronizados, setPagosSincronizados] = useState(registro?.pagos)
+  if (registro?.pagos !== pagosSincronizados) {
+    setPagosSincronizados(registro?.pagos)
+    setPagos(registro?.pagos || [])
+  }
 
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) onClose()
-    }
+    const handler = (e: MouseEvent) => { if (panelRef.current && !panelRef.current.contains(e.target as Node)) onClose() }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [onClose])
@@ -232,19 +520,29 @@ function ProyectoDetailPanel({ evento, proyecto, cliente, usuarios, registro, ge
     updateRegistroAdmin(ensureId(), { concepto })
   }
 
-  const toggleFormaPago = (forma: MedioPago) => {
-    const next = formasPago.includes(forma) ? formasPago.filter(f => f !== forma) : [...formasPago, forma]
-    updateRegistroAdmin(ensureId(), { formasPago: next })
+  const commitPagos = (next: PagoAdmin[]) => { setPagos(next); updateRegistroAdmin(ensureId(), { pagos: next }) }
+  const agregarPago = () => commitPagos([...pagos, { id: genId(), monto: 0 }])
+  const eliminarPago = (id: string) => commitPagos(pagos.filter(p => p.id !== id))
+  const setPagoLocal = (id: string, patch: Partial<PagoAdmin>) => setPagos(prev => prev.map(p => p.id === id ? { ...p, ...patch } : p))
+  const commitPagoField = (id: string) => {
+    const actual = pagos.find(p => p.id === id)
+    const guardado = (registro?.pagos || []).find(p => p.id === id)
+    if (!actual || JSON.stringify(actual) === JSON.stringify(guardado)) return
+    updateRegistroAdmin(ensureId(), { pagos })
+  }
+  const setPagoInmediato = (id: string, patch: Partial<PagoAdmin>) => {
+    const next = pagos.map(p => p.id === id ? { ...p, ...patch } : p)
+    commitPagos(next)
   }
 
   const responsable = usuarios.find(u => u.id === proyecto.responsableId)
   const tareasDone = proyecto.tareas.filter(t => t.completada).length
   const renders = proyecto.renders || []
 
-  const formatDate = (iso?: string) => {
-    if (!iso) return null
-    return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })
-  }
+  const totalPagado = montoPagadoAdmin(pagos)
+  const saldoPendiente = Math.max(0, proyecto.importe - totalPagado)
+  const estado = estadoPagoAdmin(pagos, proyecto.importe)
+  const estadoCols = ESTADO_PAGO_ADMIN_COLORS[estado]
 
   return (
     <div className="fixed inset-0 z-40 flex justify-end pointer-events-none">
@@ -255,7 +553,7 @@ function ProyectoDetailPanel({ evento, proyecto, cliente, usuarios, registro, ge
         {/* Header */}
         <div className="flex items-start justify-between p-5 border-b border-[var(--border)] shrink-0">
           <div className="flex-1 min-w-0 pr-3">
-            <p className="text-xs text-gray-500 mb-1">{cliente?.nombre || '—'}</p>
+            <div className="text-xs text-gray-500 mb-1"><ClienteInfo cliente={cliente} /></div>
             <h2 className="text-base font-bold text-gray-100 leading-snug">{evento.titulo}</h2>
           </div>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-300 transition-colors cursor-pointer shrink-0 mt-0.5">
@@ -376,10 +674,21 @@ function ProyectoDetailPanel({ evento, proyecto, cliente, usuarios, registro, ge
 
           {/* Campos admin */}
           <div className="space-y-4">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Administración</p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Administración</p>
+              <label className="flex items-center gap-2 cursor-pointer" onClick={e => e.stopPropagation()}>
+                <input
+                  type="checkbox"
+                  checked={registro?.facturado || false}
+                  onChange={e => updateRegistroAdmin(ensureId(), { facturado: e.target.checked })}
+                  className="w-4 h-4 accent-brand-500 cursor-pointer"
+                />
+                <span className="text-xs text-gray-400">Facturado</span>
+              </label>
+            </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs text-gray-500">Concepto</label>
+              <label className="text-xs text-gray-500">Concepto (factura)</label>
               <input
                 value={concepto}
                 onChange={e => setConcepto(e.target.value)}
@@ -390,52 +699,98 @@ function ProyectoDetailPanel({ evento, proyecto, cliente, usuarios, registro, ge
               />
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-xs text-gray-500">Forma de Pago</label>
-              <div className="flex flex-wrap gap-1.5">
-                {MEDIOS_PAGO.map(forma => {
-                  const active = formasPago.includes(forma as MedioPago)
-                  return (
-                    <button
-                      key={forma}
-                      onClick={e => { e.stopPropagation(); toggleFormaPago(forma as MedioPago) }}
-                      className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-all cursor-pointer ${
-                        active
-                          ? 'bg-brand-500/15 text-brand-400 border-brand-500/40'
-                          : 'bg-transparent text-gray-500 border-[var(--border)] hover:border-gray-500'
-                      }`}
-                    >
-                      {forma}
-                    </button>
-                  )
-                })}
+            {/* Pagos parciales */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs text-gray-500">Pagos</label>
+                <button
+                  onClick={e => { e.stopPropagation(); agregarPago() }}
+                  className="flex items-center gap-1 text-xs text-brand-400 hover:text-brand-300 cursor-pointer transition-colors"
+                >
+                  <Plus size={12} /> Agregar pago
+                </button>
               </div>
-            </div>
 
-            <div className="flex gap-6">
-              <label className="flex items-center gap-2.5 cursor-pointer" onClick={e => e.stopPropagation()}>
-                <input
-                  type="checkbox"
-                  checked={registro?.pagado || false}
-                  onChange={e => updateRegistroAdmin(ensureId(), { pagado: e.target.checked })}
-                  className="w-4 h-4 accent-brand-500 cursor-pointer"
-                />
-                <span className="text-sm text-gray-400">Pagado</span>
-              </label>
-              <label className="flex items-center gap-2.5 cursor-pointer" onClick={e => e.stopPropagation()}>
-                <input
-                  type="checkbox"
-                  checked={registro?.facturado || false}
-                  onChange={e => updateRegistroAdmin(ensureId(), { facturado: e.target.checked })}
-                  className="w-4 h-4 accent-brand-500 cursor-pointer"
-                />
-                <span className="text-sm text-gray-400">Facturado</span>
-              </label>
+              {pagos.length === 0 ? (
+                <p className="text-xs text-gray-600 italic">Sin pagos registrados.</p>
+              ) : (
+                <div className="space-y-2">
+                  {pagos.map(pago => (
+                    <div key={pago.id} className="bg-[var(--bg)] border border-[var(--border)] rounded-lg p-2.5 space-y-2" onClick={e => e.stopPropagation()}>
+                      <div className="flex items-center gap-1.5">
+                        <select
+                          value={pago.formaPago || ''}
+                          onChange={e => setPagoInmediato(pago.id, { formaPago: (e.target.value || undefined) as MedioPago | undefined })}
+                          className="flex-1 bg-[var(--surface)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-xs text-gray-300 focus:outline-none cursor-pointer [&>option]:bg-white [&>option]:text-black"
+                        >
+                          <option value="">— Forma de pago —</option>
+                          {MEDIOS_PAGO.map(m => <option key={m} value={m}>{m}</option>)}
+                        </select>
+                        <button onClick={() => eliminarPago(pago.id)} className="p-1.5 text-gray-600 hover:text-red-400 cursor-pointer transition-colors shrink-0">
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <MontoPagoInput
+                          value={pago.monto}
+                          onChange={n => setPagoLocal(pago.id, { monto: n })}
+                          onCommit={() => commitPagoField(pago.id)}
+                        />
+                        <input
+                          type="date"
+                          value={pago.fecha || ''}
+                          onChange={e => setPagoInmediato(pago.id, { fecha: e.target.value || undefined })}
+                          className="bg-[var(--surface)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-xs text-gray-300 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Resumen de cobro */}
+              <div className="pt-2 mt-2 border-t border-[var(--border)] space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-gray-500">Cobrado</span>
+                  <span className="text-emerald-400 font-medium tabular-nums">{formatCurrency(totalPagado)}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-gray-500">Saldo pendiente</span>
+                  <span className="text-red-400 font-medium tabular-nums">{formatCurrency(saldoPendiente)}</span>
+                </div>
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-xs text-gray-500">Estado</span>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${estadoCols.bg} ${estadoCols.text}`}>{estado}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
     </div>
+  )
+}
+
+function MontoPagoInput({ value, onChange, onCommit }: { value: number; onChange: (n: number) => void; onCommit: () => void }) {
+  const [focused, setFocused] = useState(false)
+  const [raw, setRaw] = useState('')
+
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      aria-label="Monto del pago"
+      value={focused ? (raw ? formatMiles(Number(raw)) : '') : (value ? formatMiles(value) : '')}
+      onFocus={e => { setFocused(true); setRaw(value ? String(value) : ''); e.target.select() }}
+      onChange={e => {
+        const digits = soloDigitos(e.target.value)
+        setRaw(digits)
+        onChange(montoDesdeDigitos(digits))
+      }}
+      onBlur={() => { setFocused(false); onCommit() }}
+      placeholder="Monto"
+      className="flex-1 bg-[var(--surface)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-xs text-gray-200 text-right tabular-nums placeholder:text-gray-600 focus:border-brand-500/50 focus:outline-none transition-all"
+    />
   )
 }
 

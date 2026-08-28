@@ -178,12 +178,23 @@ export interface TrabajoExterno {
 
 // ─── Administración ──────────────────────────────────────────────────────────
 
+// Un pago parcial dentro de un registro de administración — un proyecto puede
+// cobrarse en varias partes y con más de una forma de pago cada una. El estado
+// pagado/parcial/pendiente ya no es un booleano manual: se deriva comparando
+// la suma de `pagos` contra el importe del proyecto (ver estadoPagoAdmin() en
+// lib/utils.ts).
+export interface PagoAdmin {
+  id: string
+  formaPago?: MedioPago
+  monto: number
+  fecha?: string   // YYYY-MM-DD, opcional
+}
+
 export interface RegistroAdmin {
   id: string
   proyectoId: string
   concepto: string
-  formasPago: MedioPago[]
-  pagado: boolean
+  pagos: PagoAdmin[]
   facturado: boolean
   updatedAt: string
 }

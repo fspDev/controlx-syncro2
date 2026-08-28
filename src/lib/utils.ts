@@ -1,6 +1,6 @@
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
-import type { Cliente, Evento, ProyectoEstado, EventoEstadoAuto, TrabajoEstado } from '@/types'
+import type { Cliente, Evento, ProyectoEstado, EventoEstadoAuto, TrabajoEstado, PagoAdmin } from '@/types'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -112,6 +112,28 @@ export const EVENTO_ESTADO_COLORS: Record<EventoEstadoAuto, { bg: string; text: 
 export const TRABAJO_ESTADO_COLORS: Record<TrabajoEstado, { bg: string; text: string }> = {
   'Pendiente':   { bg: 'bg-amber-500/15',  text: 'text-amber-400' },
   'Cobrado':     { bg: 'bg-emerald-500/15',text: 'text-emerald-400' },
+}
+
+// Estado de cobro de un registro de Administración — derivado, no manual: se
+// compara la suma de los pagos parciales cargados contra el importe del
+// proyecto. Colores alineados con Cta Cte Proveedores (rojo=deuda, verde=cobrado).
+export type EstadoPagoAdmin = 'Pendiente' | 'Parcial' | 'Pagado'
+
+export const ESTADO_PAGO_ADMIN_COLORS: Record<EstadoPagoAdmin, { bg: string; text: string; dot: string }> = {
+  Pendiente: { bg: 'bg-red-500/15',    text: 'text-red-400',    dot: 'bg-red-400' },
+  Parcial:   { bg: 'bg-amber-500/15',  text: 'text-amber-400',  dot: 'bg-amber-400' },
+  Pagado:    { bg: 'bg-emerald-500/15',text: 'text-emerald-400',dot: 'bg-emerald-400' },
+}
+
+export function montoPagadoAdmin(pagos: PagoAdmin[]): number {
+  return pagos.reduce((s, p) => s + p.monto, 0)
+}
+
+export function estadoPagoAdmin(pagos: PagoAdmin[], importe: number): EstadoPagoAdmin {
+  const total = montoPagadoAdmin(pagos)
+  if (total <= 0) return 'Pendiente'
+  if (total >= importe) return 'Pagado'
+  return 'Parcial'
 }
 
 export const ESTADOS_PROYECTO: ProyectoEstado[] = ['Negociacion', 'Confirmado', 'Cancelado']
