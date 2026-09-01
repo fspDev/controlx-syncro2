@@ -219,10 +219,7 @@ export function AdministracionPage() {
                   }))}
                   className="accent-brand-500 cursor-pointer"
                 />
-                <span className={`inline-flex items-center gap-1.5 ${activo ? cols.text : ''}`}>
-                  <span className={`w-2 h-2 rounded-full ${cols.dot}`} />
-                  {estado}
-                </span>
+                <span className={activo ? cols.text : ''}>{estado}</span>
               </label>
             )
           })}
@@ -413,13 +410,13 @@ function FilaAdministracion({ evento, proyecto, cliente, registro, responsableNo
         />
       </td>
       <td className="px-4 py-3 text-center"><EstadoPagoBadge pagos={registro?.pagos || []} importe={proyecto.importe} /></td>
-      <td className="px-4 py-3 text-center" onClick={e => e.stopPropagation()}>
-        <div className="flex flex-col items-center gap-1.5">
+      <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-center gap-2">
           <input
             type="checkbox"
             checked={registro?.facturado || false}
             onChange={e => updateRegistroAdmin(ensureId(), { facturado: e.target.checked })}
-            className="w-4 h-4 accent-brand-500 cursor-pointer"
+            className="w-4 h-4 accent-brand-500 cursor-pointer shrink-0"
           />
           {registro?.facturado && (
             <input
@@ -427,7 +424,7 @@ function FilaAdministracion({ evento, proyecto, cliente, registro, responsableNo
               onChange={e => setNroFactura(e.target.value)}
               onBlur={handleNroFacturaBlur}
               placeholder="N° factura"
-              className="w-28 bg-[var(--bg)] border border-[var(--border)] rounded px-1.5 py-1 text-xs text-gray-200 placeholder:text-gray-600 text-center focus:border-brand-500/50 focus:outline-none transition-all"
+              className="w-28 bg-[var(--bg)] border border-[var(--border)] rounded px-1.5 py-1 text-xs text-gray-200 placeholder:text-gray-600 focus:border-brand-500/50 focus:outline-none transition-all"
             />
           )}
         </div>
