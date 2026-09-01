@@ -5,7 +5,10 @@ import {
   formatCurrency, formatDate, genId,
   montoPagadoAdmin, estadoPagoAdmin, ESTADO_PAGO_ADMIN_COLORS,
   proyectoEstadoLabel, PROYECTO_ESTADO_COLORS, MEDIOS_PAGO,
+  type EstadoPagoAdmin,
 } from '@/lib/utils'
+
+const ESTADOS_PAGO: EstadoPagoAdmin[] = ['Pendiente', 'Parcial', 'Pagado']
 import { MontoInput } from '@/components/ui/MontoInput'
 import type { Cliente, Evento, MedioPago, PagoAdmin, Proyecto, RegistroAdmin, Usuario } from '@/types'
 import {
@@ -28,11 +31,10 @@ interface Filtros {
   concepto: string
   fechaDesde: string
   fechaHasta: string
-  soloPendientes: boolean
-  soloSinFacturar: boolean
+  estados: EstadoPagoAdmin[]   // vacío = todos los estados
 }
 
-const FILTROS_VACIOS: Filtros = { clienteId: '', concepto: '', fechaDesde: '', fechaHasta: '', soloPendientes: false, soloSinFacturar: false }
+const FILTROS_VACIOS: Filtros = { clienteId: '', concepto: '', fechaDesde: '', fechaHasta: '', estados: [] }
 
 // Los eventos anteriores a esta fecha ya se marcaron como cobrados/facturados
 // en bloque (ver commit de la migración) y no tienen que verse ni poder
@@ -72,7 +74,7 @@ export function AdministracionPage() {
   }, [eventos, clientes, registrosAdmin])
 
   const hayFiltrosActivos = filtros.clienteId !== '' || filtros.concepto.trim() !== '' || filtros.fechaDesde !== '' ||
-    filtros.fechaHasta !== '' || filtros.soloPendientes || filtros.soloSinFacturar
+    filtros.fechaHasta !== '' || filtros.estados.length > 0
 
   const filtradas = todasLasFilas.filter(({ evento, proyecto, cliente, registro }) => {
     if (filtros.clienteId && cliente?.id !== filtros.clienteId) return false
@@ -80,8 +82,7 @@ export function AdministracionPage() {
     if (filtros.fechaDesde && (!evento.eventoInicio || evento.eventoInicio < filtros.fechaDesde)) return false
     if (filtros.fechaHasta && (!evento.eventoInicio || evento.eventoInicio > filtros.fechaHasta)) return false
     const estado = estadoPagoAdmin(registro?.pagos || [], proyecto.importe)
-    if (filtros.soloPendientes && estado === 'Pagado') return false
-    if (filtros.soloSinFacturar && registro?.facturado) return false
+    if (filtros.estados.length > 0 && !filtros.estados.includes(estado)) return false
     return true
   })
 
@@ -189,14 +190,28 @@ export function AdministracionPage() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-4">
-          <label className="flex items-center gap-1.5 text-sm text-gray-400 cursor-pointer">
-            <input type="checkbox" checked={filtros.soloPendientes} onChange={e => setFiltros(f => ({ ...f, soloPendientes: e.target.checked }))} className="accent-brand-500 cursor-pointer" />
-            Solo pendientes de cobro
-          </label>
-          <label className="flex items-center gap-1.5 text-sm text-gray-400 cursor-pointer">
-            <input type="checkbox" checked={filtros.soloSinFacturar} onChange={e => setFiltros(f => ({ ...f, soloSinFacturar: e.target.checked }))} className="accent-brand-500 cursor-pointer" />
-            Solo sin facturar
-          </label>
+          <span className="text-xs text-gray-500 uppercase tracking-wider">Por estado</span>
+          {ESTADOS_PAGO.map(estado => {
+            const activo = filtros.estados.includes(estado)
+            const cols = ESTADO_PAGO_ADMIN_COLORS[estado]
+            return (
+              <label key={estado} className="flex items-center gap-1.5 text-sm text-gray-400 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={activo}
+                  onChange={e => setFiltros(f => ({
+                    ...f,
+                    estados: e.target.checked ? [...f.estados, estado] : f.estados.filter(x => x !== estado),
+                  }))}
+                  className="accent-brand-500 cursor-pointer"
+                />
+                <span className={`inline-flex items-center gap-1.5 ${activo ? cols.text : ''}`}>
+                  <span className={`w-2 h-2 rounded-full ${cols.dot}`} />
+                  {estado}
+                </span>
+              </label>
+            )
+          })}
           {hayFiltrosActivos && (
             <button onClick={() => setFiltros(FILTROS_VACIOS)} className="flex items-center gap-1 text-xs text-gray-500 hover:text-brand-400 cursor-pointer transition-colors ml-auto">
               <X size={12} /> Limpiar filtros
