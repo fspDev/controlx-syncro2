@@ -260,8 +260,9 @@ function PlanillaView({ filas, seleccion, onSelect, getOrCreateRegistroAdmin, up
         <table className="w-full min-w-[960px]">
           <thead>
             <tr className="bg-[var(--surface-2)]">
-              <Th>Cliente</Th>
               <Th>Evento</Th>
+              <Th>Cliente</Th>
+              <Th>Stand</Th>
               <Th>Fecha</Th>
               <Th>Responsable</Th>
               <Th align="right">Monto</Th>
@@ -310,7 +311,7 @@ function EstadoPagoBadge({ pagos, importe }: { pagos: PagoAdmin[]; importe: numb
 
 function FilaAdministracion({ evento, proyecto, cliente, registro, responsableNombre, selected, onSelect, getOrCreateRegistroAdmin, updateRegistroAdmin }: {
   evento: Pick<Evento, 'id' | 'titulo' | 'eventoInicio'>
-  proyecto: Pick<Proyecto, 'id' | 'importe'>
+  proyecto: Pick<Proyecto, 'id' | 'importe' | 'nombreStand'>
   cliente?: Cliente
   registro?: RegistroAdmin
   responsableNombre: string
@@ -349,8 +350,9 @@ function FilaAdministracion({ evento, proyecto, cliente, registro, responsableNo
 
   return (
     <tr onClick={onSelect} className={`cursor-pointer transition-colors ${selected ? 'bg-brand-500/10' : 'hover:bg-[var(--surface-h)]'}`}>
-      <td className="px-4 py-3 text-sm text-gray-300">{cliente?.nombre || '—'}</td>
       <td className="px-4 py-3 text-sm font-medium text-gray-200">{evento.titulo}</td>
+      <td className="px-4 py-3 text-sm text-gray-300">{cliente?.nombre || '—'}</td>
+      <td className="px-4 py-3 text-sm text-gray-400">{proyecto.nombreStand || '—'}</td>
       <td className="px-4 py-3 text-sm text-gray-400">{formatDate(evento.eventoInicio)}</td>
       <td className="px-4 py-3 text-sm text-gray-400">{responsableNombre}</td>
       <td className="px-4 py-3 text-sm font-medium text-gray-300 text-right tabular-nums">{formatCurrency(proyecto.importe)}</td>
@@ -496,7 +498,10 @@ function ClienteCard({ cliente, filas, open, onToggle, seleccion, onSelect }: {
               >
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-gray-200 truncate">{evento.titulo}</p>
-                  <p className="text-xs text-gray-500">{formatDate(evento.eventoInicio)}</p>
+                  <p className="text-xs text-gray-500">
+                    {formatDate(evento.eventoInicio)}
+                    {proyecto.nombreStand && <span className="text-gray-400"> · Stand: {proyecto.nombreStand}</span>}
+                  </p>
                 </div>
                 <span className="text-sm text-gray-300 tabular-nums shrink-0">{formatCurrency(proyecto.importe)}</span>
                 <div className="shrink-0"><EstadoPagoBadge pagos={registro?.pagos || []} importe={proyecto.importe} /></div>
@@ -612,8 +617,14 @@ function ProyectoDetailPanel({ evento, proyecto, cliente, usuarios, registro, ge
         {/* Header */}
         <div className="flex items-start justify-between p-5 border-b border-[var(--border)] shrink-0">
           <div className="flex-1 min-w-0 pr-3">
-            <div className="text-xs text-gray-500 mb-1"><ClienteInfo cliente={cliente} /></div>
-            <h2 className="text-base font-bold text-gray-100 leading-snug">{evento.titulo}</h2>
+            <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-0.5">Evento</p>
+            <h2 className="text-base font-bold text-gray-100 leading-snug mb-2">{evento.titulo}</h2>
+            <div className="text-xs text-gray-500"><ClienteInfo cliente={cliente} /></div>
+            {proyecto.nombreStand && (
+              <p className="text-xs text-gray-400 mt-1">
+                <span className="text-gray-500">Stand:</span> {proyecto.nombreStand}
+              </p>
+            )}
           </div>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-300 transition-colors cursor-pointer shrink-0 mt-0.5">
             <X size={18} />
