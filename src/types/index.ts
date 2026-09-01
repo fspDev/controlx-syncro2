@@ -30,6 +30,7 @@ export interface Tarea {
 export interface Proyecto {
   id: string
   clienteId: string
+  nombreStand?: string      // nombre del stand dentro del evento (trabajos viejos: en blanco)
   estado: ProyectoEstado
   responsableId?: string
   fabricacion: string
@@ -196,6 +197,7 @@ export interface RegistroAdmin {
   concepto: string
   pagos: PagoAdmin[]
   facturado: boolean
+  nroFactura?: string    // n° de factura, se carga cuando facturado = true
   updatedAt: string
 }
 

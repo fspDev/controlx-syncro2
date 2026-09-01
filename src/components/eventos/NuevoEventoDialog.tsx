@@ -8,7 +8,7 @@ import { genId } from '@/lib/utils'
 import type { Evento } from '@/types'
 import { Plus } from 'lucide-react'
 
-const EMPTY_PROYECTO: ProyectoFormData = { clienteId: '', estado: 'Negociacion', responsableId: '', fabricacion: '', importe: 0, notas: '' }
+const EMPTY_PROYECTO: ProyectoFormData = { clienteId: '', nombreStand: '', estado: 'Negociacion', responsableId: '', fabricacion: '', importe: 0, notas: '' }
 
 interface NuevoEventoDialogProps {
   open: boolean

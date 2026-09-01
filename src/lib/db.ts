@@ -105,6 +105,7 @@ function proyectoFromFirestore(id: string, data: Record<string, unknown>): Proye
   return {
     id,
     clienteId: (data.clienteId as string) || (data.cliente as string) || '',
+    nombreStand: (data.nombreStand as string) || undefined,
     estado: normalizeProyectoEstado(data.estado),
     responsableId: (data.responsableId as string) || undefined,
     fabricacion: (data.fabricacion as string) || '',
@@ -288,6 +289,7 @@ function registroAdminFromFirestore(id: string, data: Record<string, unknown>): 
     concepto: (data.concepto as string) || '',
     pagos: pagosAdminFromFirestore(data.pagos),
     facturado: Boolean(data.facturado),
+    nroFactura: (data.nroFactura as string) || undefined,
     updatedAt: tsToIso(data.updatedAt) || new Date().toISOString(),
   }
 }

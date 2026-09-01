@@ -328,11 +328,23 @@ function FilaAdministracion({ evento, proyecto, cliente, registro, responsableNo
     setConcepto(registro?.concepto || '')
   }
 
+  const [nroFactura, setNroFactura] = useState(registro?.nroFactura || '')
+  const [nroFacturaSincronizado, setNroFacturaSincronizado] = useState(registro?.nroFactura)
+  if (registro?.nroFactura !== nroFacturaSincronizado) {
+    setNroFacturaSincronizado(registro?.nroFactura)
+    setNroFactura(registro?.nroFactura || '')
+  }
+
   const ensureId = () => registro?.id || getOrCreateRegistroAdmin(proyecto.id)
 
   const handleConceptoBlur = () => {
     if (concepto === (registro?.concepto || '')) return
     updateRegistroAdmin(ensureId(), { concepto })
+  }
+
+  const handleNroFacturaBlur = () => {
+    if (nroFactura === (registro?.nroFactura || '')) return
+    updateRegistroAdmin(ensureId(), { nroFactura })
   }
 
   return (
@@ -353,12 +365,23 @@ function FilaAdministracion({ evento, proyecto, cliente, registro, responsableNo
       </td>
       <td className="px-4 py-3 text-center"><EstadoPagoBadge pagos={registro?.pagos || []} importe={proyecto.importe} /></td>
       <td className="px-4 py-3 text-center" onClick={e => e.stopPropagation()}>
-        <input
-          type="checkbox"
-          checked={registro?.facturado || false}
-          onChange={e => updateRegistroAdmin(ensureId(), { facturado: e.target.checked })}
-          className="w-4 h-4 accent-brand-500 cursor-pointer"
-        />
+        <div className="flex flex-col items-center gap-1.5">
+          <input
+            type="checkbox"
+            checked={registro?.facturado || false}
+            onChange={e => updateRegistroAdmin(ensureId(), { facturado: e.target.checked })}
+            className="w-4 h-4 accent-brand-500 cursor-pointer"
+          />
+          {registro?.facturado && (
+            <input
+              value={nroFactura}
+              onChange={e => setNroFactura(e.target.value)}
+              onBlur={handleNroFacturaBlur}
+              placeholder="N° factura"
+              className="w-28 bg-[var(--bg)] border border-[var(--border)] rounded px-1.5 py-1 text-xs text-gray-200 placeholder:text-gray-600 text-center focus:border-brand-500/50 focus:outline-none transition-all"
+            />
+          )}
+        </div>
       </td>
     </tr>
   )
@@ -499,6 +522,7 @@ function ProyectoDetailPanel({ evento, proyecto, cliente, usuarios, registro, ge
   onClose: () => void
 }) {
   const [concepto, setConcepto] = useState(registro?.concepto || '')
+  const [nroFactura, setNroFactura] = useState(registro?.nroFactura || '')
   const [pagos, setPagos] = useState<PagoAdmin[]>(registro?.pagos || [])
   // Borrador del próximo pago a registrar — no se guarda nada hasta tocar
   // "Confirmar pago", así se pueden cargar varios pagos seguidos sin que
@@ -520,6 +544,11 @@ function ProyectoDetailPanel({ evento, proyecto, cliente, usuarios, registro, ge
     setConceptoSincronizado(registro?.concepto)
     setConcepto(registro?.concepto || '')
   }
+  const [nroFacturaSincronizado, setNroFacturaSincronizado] = useState(registro?.nroFactura)
+  if (registro?.nroFactura !== nroFacturaSincronizado) {
+    setNroFacturaSincronizado(registro?.nroFactura)
+    setNroFactura(registro?.nroFactura || '')
+  }
   const [pagosSincronizados, setPagosSincronizados] = useState(registro?.pagos)
   if (registro?.pagos !== pagosSincronizados) {
     setPagosSincronizados(registro?.pagos)
@@ -537,6 +566,11 @@ function ProyectoDetailPanel({ evento, proyecto, cliente, usuarios, registro, ge
   const handleConceptoBlur = () => {
     if (concepto === (registro?.concepto || '')) return
     updateRegistroAdmin(ensureId(), { concepto })
+  }
+
+  const handleNroFacturaBlur = () => {
+    if (nroFactura === (registro?.nroFactura || '')) return
+    updateRegistroAdmin(ensureId(), { nroFactura })
   }
 
   const commitPagos = (next: PagoAdmin[]) => { setPagos(next); updateRegistroAdmin(ensureId(), { pagos: next }) }
@@ -711,6 +745,20 @@ function ProyectoDetailPanel({ evento, proyecto, cliente, usuarios, registro, ge
                 <span className="text-xs text-gray-400">Facturado</span>
               </label>
             </div>
+
+            {registro?.facturado && (
+              <div className="space-y-1.5">
+                <label className="text-xs text-gray-500">N° de factura</label>
+                <input
+                  value={nroFactura}
+                  onChange={e => setNroFactura(e.target.value)}
+                  onBlur={handleNroFacturaBlur}
+                  placeholder="Ej: 0001-00001234"
+                  className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-gray-200 placeholder:text-gray-600 focus:border-brand-500/50 focus:outline-none transition-all"
+                  onClick={e => e.stopPropagation()}
+                />
+              </div>
+            )}
 
             <div className="space-y-1.5">
               <label className="text-xs text-gray-500">Concepto (factura)</label>

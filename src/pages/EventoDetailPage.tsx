@@ -306,13 +306,20 @@ function ProyectoCard({ evento, proyecto }: { evento: Evento; proyecto: Proyecto
               <span className="text-xs text-gray-500">{proyecto.tareas.length - tareasPend}/{proyecto.tareas.length} tareas</span>
             )}
           </div>
-          {cliente ? (
-            <button onClick={() => navigate(`/clientes/${cliente.id}`)} className="text-sm font-medium text-brand-400 hover:text-brand-300 cursor-pointer transition-colors">
-              {cliente.nombre}
-            </button>
-          ) : (
-            <p className="text-sm font-medium text-gray-500">— Sin cliente —</p>
-          )}
+          <div className="flex items-center gap-2 flex-wrap">
+            {cliente ? (
+              <button onClick={() => navigate(`/clientes/${cliente.id}`)} className="text-sm font-medium text-brand-400 hover:text-brand-300 cursor-pointer transition-colors">
+                {cliente.nombre}
+              </button>
+            ) : (
+              <p className="text-sm font-medium text-gray-500">— Sin cliente —</p>
+            )}
+            {proyecto.nombreStand && (
+              <span className="text-xs text-gray-400 bg-[var(--surface-2)] rounded px-1.5 py-0.5">
+                Stand: {proyecto.nombreStand}
+              </span>
+            )}
+          </div>
         </div>
         <div className="flex gap-1 shrink-0">
           <button onClick={() => setShowEdit(true)} className="p-1.5 rounded text-gray-600 hover:text-gray-300 hover:bg-[var(--surface-2)] cursor-pointer transition-all"><Edit2 size={13} /></button>

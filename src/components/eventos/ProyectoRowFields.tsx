@@ -36,7 +36,10 @@ export function ProyectoRowFields({ value, onChange, onRemove }: ProyectoRowFiel
           <X size={14} />
         </button>
       )}
-      <Select label="Cliente" value={value.clienteId} onChange={e => set('clienteId', e.target.value)} options={clienteOpts} />
+      <div className="grid grid-cols-2 gap-3">
+        <Select label="Cliente" value={value.clienteId} onChange={e => set('clienteId', e.target.value)} options={clienteOpts} />
+        <Input label="Stand" value={value.nombreStand || ''} onChange={e => set('nombreStand', e.target.value)} placeholder="Nombre del stand" />
+      </div>
       <div className="grid grid-cols-2 gap-3">
         <Select label="Estado" value={value.estado} onChange={e => set('estado', e.target.value as Proyecto['estado'])} options={estadoOpts} />
         <Select label="Responsable" value={value.responsableId || ''} onChange={e => set('responsableId', e.target.value)} options={responsableOpts} />

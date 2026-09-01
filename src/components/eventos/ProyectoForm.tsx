@@ -15,6 +15,7 @@ interface ProyectoFormProps {
 export function ProyectoForm({ initial, onSubmit, onCancel, submitLabel = 'Guardar' }: ProyectoFormProps) {
   const [form, setForm] = useState<ProyectoFormData>({
     clienteId: initial?.clienteId || '',
+    nombreStand: initial?.nombreStand || '',
     estado: initial?.estado || 'Negociacion',
     responsableId: initial?.responsableId || '',
     fabricacion: initial?.fabricacion || '',
