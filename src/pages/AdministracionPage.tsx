@@ -26,15 +26,23 @@ interface Fila {
   registro?: RegistroAdmin
 }
 
+type FiltroFacturacion = 'facturado' | 'sin_facturar'
+
 interface Filtros {
   clienteId: string
   concepto: string
   fechaDesde: string
   fechaHasta: string
-  estados: EstadoPagoAdmin[]   // vacío = todos los estados
+  estados: EstadoPagoAdmin[]         // vacío = todos los estados
+  facturacion: FiltroFacturacion[]   // vacío = facturados y sin facturar
 }
 
-const FILTROS_VACIOS: Filtros = { clienteId: '', concepto: '', fechaDesde: '', fechaHasta: '', estados: [] }
+const FILTROS_VACIOS: Filtros = { clienteId: '', concepto: '', fechaDesde: '', fechaHasta: '', estados: [], facturacion: [] }
+
+const FACTURACION_OPTS: { value: FiltroFacturacion; label: string }[] = [
+  { value: 'facturado', label: 'Facturado' },
+  { value: 'sin_facturar', label: 'Sin facturar' },
+]
 
 // Los eventos anteriores a esta fecha ya se marcaron como cobrados/facturados
 // en bloque (ver commit de la migración) y no tienen que verse ni poder
@@ -74,7 +82,7 @@ export function AdministracionPage() {
   }, [eventos, clientes, registrosAdmin])
 
   const hayFiltrosActivos = filtros.clienteId !== '' || filtros.concepto.trim() !== '' || filtros.fechaDesde !== '' ||
-    filtros.fechaHasta !== '' || filtros.estados.length > 0
+    filtros.fechaHasta !== '' || filtros.estados.length > 0 || filtros.facturacion.length > 0
 
   const filtradas = todasLasFilas.filter(({ evento, proyecto, cliente, registro }) => {
     if (filtros.clienteId && cliente?.id !== filtros.clienteId) return false
@@ -83,6 +91,12 @@ export function AdministracionPage() {
     if (filtros.fechaHasta && (!evento.eventoInicio || evento.eventoInicio > filtros.fechaHasta)) return false
     const estado = estadoPagoAdmin(registro?.pagos || [], proyecto.importe)
     if (filtros.estados.length > 0 && !filtros.estados.includes(estado)) return false
+    if (filtros.facturacion.length > 0) {
+      const facturado = Boolean(registro?.facturado)
+      const match = (facturado && filtros.facturacion.includes('facturado')) ||
+        (!facturado && filtros.facturacion.includes('sin_facturar'))
+      if (!match) return false
+    }
     return true
   })
 
@@ -212,6 +226,24 @@ export function AdministracionPage() {
               </label>
             )
           })}
+
+          <span className="w-px h-4 bg-[var(--border)]" />
+          <span className="text-xs text-gray-500 uppercase tracking-wider">Facturación</span>
+          {FACTURACION_OPTS.map(({ value, label }) => (
+            <label key={value} className="flex items-center gap-1.5 text-sm text-gray-400 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={filtros.facturacion.includes(value)}
+                onChange={e => setFiltros(f => ({
+                  ...f,
+                  facturacion: e.target.checked ? [...f.facturacion, value] : f.facturacion.filter(x => x !== value),
+                }))}
+                className="accent-brand-500 cursor-pointer"
+              />
+              {label}
+            </label>
+          ))}
+
           {hayFiltrosActivos && (
             <button onClick={() => setFiltros(FILTROS_VACIOS)} className="flex items-center gap-1 text-xs text-gray-500 hover:text-brand-400 cursor-pointer transition-colors ml-auto">
               <X size={12} /> Limpiar filtros
