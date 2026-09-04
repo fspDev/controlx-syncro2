@@ -17,6 +17,7 @@ export function ProyectosPage() {
     new Set(ESTADOS_EVENTO_AUTO.filter(e => e !== 'Finalizado'))
   )
   const [filterCliente, setFilterCliente] = useState('')
+  const [filterResponsable, setFilterResponsable] = useState('')
 
   const toggleEstado = (estado: EventoEstadoAuto) => {
     setFilterEstados(prev => {
@@ -30,6 +31,7 @@ export function ProyectosPage() {
   const filtered = eventos.filter(e => {
     if (filterEstados.size > 0 && !filterEstados.has(eventoEstadoAuto(e))) return false
     if (filterCliente && !e.proyectos.some(p => p.clienteId === filterCliente)) return false
+    if (filterResponsable && !e.proyectos.some(p => p.responsableId === filterResponsable)) return false
     return true
   }).sort((a, b) => {
     if (a.eventoInicio && b.eventoInicio) return new Date(a.eventoInicio).getTime() - new Date(b.eventoInicio).getTime()
@@ -76,8 +78,16 @@ export function ProyectosPage() {
             <option value="">Todos los clientes</option>
             {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
           </select>
-          {(filterEstados.size > 0 || filterCliente) && (
-            <button onClick={() => { setFilterEstados(new Set()); setFilterCliente('') }} className="text-xs text-gray-500 hover:text-brand-400 cursor-pointer">
+          <select
+            value={filterResponsable}
+            onChange={e => setFilterResponsable(e.target.value)}
+            className="bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-1.5 text-sm text-gray-300 focus:outline-none cursor-pointer"
+          >
+            <option value="">Todos los responsables</option>
+            {usuarios.map(u => <option key={u.id} value={u.id}>{u.displayName || u.username}</option>)}
+          </select>
+          {(filterEstados.size > 0 || filterCliente || filterResponsable) && (
+            <button onClick={() => { setFilterEstados(new Set()); setFilterCliente(''); setFilterResponsable('') }} className="text-xs text-gray-500 hover:text-brand-400 cursor-pointer">
               Limpiar
             </button>
           )}
