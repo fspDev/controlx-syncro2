@@ -17,9 +17,11 @@ function fmtDate(val?: string) {
 }
 
 const S = StyleSheet.create({
-  page: { fontFamily: 'Helvetica', backgroundColor: '#fff', paddingBottom: 35 },
+  // paddingTop reserva el espacio del header fijo (absolute) que se repite en cada página
+  page: { fontFamily: 'Helvetica', backgroundColor: '#fff', paddingTop: 84, paddingBottom: 35 },
 
-  // Header
+  // Header — fijo arriba, se repite en todas las páginas
+  headerFixed: { position: 'absolute', top: 0, left: 0, right: 0 },
   headerBar: { backgroundColor: '#111', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: PH, paddingVertical: 8 },
   headerLogo: { width: 80, height: 24, objectFit: 'contain' },
   headerLogoPlaceholder: { width: 80 },
@@ -67,7 +69,7 @@ const S = StyleSheet.create({
   colLegendText: { fontSize: 6, color: '#374151' },
 
   // Piece cards
-  card: { border: '0.5pt solid #d1d5db', borderRadius: 4, overflow: 'hidden' },
+  card: { border: '0.5pt solid #111', borderRadius: 4, overflow: 'hidden' },
   cardImgEmpty: { backgroundColor: '#f3f4f6', justifyContent: 'center', alignItems: 'center' },
   cardImgEmptyText: { fontSize: 7, color: '#9ca3af' },
   cardBody: { padding: 6 },
@@ -108,7 +110,7 @@ export function PlanillaPDF({ planilla, evento, standLabel, responsableLabel, re
   const docResponsable = ov?.responsable || responsableLabel || '—'
 
   const HeaderInfo = () => (
-    <>
+    <View fixed style={S.headerFixed}>
       <View style={S.headerBar}>
         {/* Logo */}
         {logoUrl ? (
@@ -136,7 +138,7 @@ export function PlanillaPDF({ planilla, evento, standLabel, responsableLabel, re
         <View style={S.infoCell}><Text style={S.infoLabel}>evento </Text><Text style={S.infoValue}>{fmtDate(evento.eventoInicio)}</Text></View>
         <View style={S.infoCell}><Text style={S.infoLabel}>actualización </Text><Text style={S.infoValueRed}>{fmtDate(evento.updatedAt)}</Text></View>
       </View>
-    </>
+    </View>
   )
 
   const Footer = () => (
