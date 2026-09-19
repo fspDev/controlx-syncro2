@@ -198,7 +198,7 @@ export function PlanillaPDF({ planilla, evento, standLabel, responsableLabel, re
     const imgH = Math.min(rawImgH, bucket === 'full' ? 220 : 160)
 
     return (
-      <View style={[S.card, { width: cardW }]}>
+      <View wrap={false} style={[S.card, { width: cardW }]}>
         {p.imagenDetalle ? (
           <Image src={p.imagenDetalle} style={{ width: cardW, height: imgH, objectFit: 'contain', backgroundColor: '#f3f4f6' }} />
         ) : (
@@ -353,7 +353,7 @@ export function PlanillaPDF({ planilla, evento, standLabel, responsableLabel, re
           {/* Adaptive card grid — one row at a time */}
           <View style={{ paddingHorizontal: PH, paddingTop: 10, gap: CARD_GAP }}>
             {cardRows.map((rowPiezas, ri) => (
-              <View key={ri} style={{ flexDirection: 'row', gap: CARD_GAP }}>
+              <View key={ri} wrap={false} style={{ flexDirection: 'row', gap: CARD_GAP }}>
                 {rowPiezas.map(p => (
                   <PiezaCard key={p.id} p={p} cardW={bucketWidth[getBucket(p)]} />
                 ))}
