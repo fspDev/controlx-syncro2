@@ -250,20 +250,20 @@ function EditPiezaModal({ pieza, onSave, onClose }: {
 // modificar los datos del proyecto. Vacío = usar el valor heredado del proyecto.
 
 function InfoEditModal({ defaults, current, onSave, onClose }: {
-  defaults: { titulo: string; cliente: string; lugar: string; responsable: string }
-  current: { titulo?: string; cliente?: string; lugar?: string; responsable?: string }
-  onSave: (data: { titulo?: string; cliente?: string; lugar?: string; responsable?: string }) => void
+  defaults: { titulo: string; stand: string; lugar: string; responsable: string }
+  current: { titulo?: string; stand?: string; lugar?: string; responsable?: string }
+  onSave: (data: { titulo?: string; stand?: string; lugar?: string; responsable?: string }) => void
   onClose: () => void
 }) {
   const [titulo, setTitulo] = useState(current.titulo || '')
-  const [cliente, setCliente] = useState(current.cliente || '')
+  const [stand, setStand] = useState(current.stand || '')
   const [lugar, setLugar] = useState(current.lugar || '')
   const [responsable, setResponsable] = useState(current.responsable || '')
 
   const handleSave = () => {
     onSave({
       titulo: titulo.trim() || undefined,
-      cliente: cliente.trim() || undefined,
+      stand: stand.trim() || undefined,
       lugar: lugar.trim() || undefined,
       responsable: responsable.trim() || undefined,
     })
@@ -271,8 +271,8 @@ function InfoEditModal({ defaults, current, onSave, onClose }: {
   }
 
   const fields: Array<{ label: string; value: string; set: (v: string) => void; placeholder: string }> = [
-    { label: 'Título / Stand', value: titulo, set: setTitulo, placeholder: defaults.titulo },
-    { label: 'Cliente', value: cliente, set: setCliente, placeholder: defaults.cliente },
+    { label: 'Título', value: titulo, set: setTitulo, placeholder: defaults.titulo },
+    { label: 'Stand', value: stand, set: setStand, placeholder: defaults.stand },
     { label: 'Lugar', value: lugar, set: setLugar, placeholder: defaults.lugar },
     { label: 'Responsable', value: responsable, set: setResponsable, placeholder: defaults.responsable },
   ]
@@ -524,6 +524,7 @@ export function PlanillaPage() {
   const evento = eventos.find(e => e.id === eventoId)
   const clienteLabel = evento ? proyectoClientesLabel(evento, clientes) : ''
   const responsableLabel = evento ? proyectoResponsablesLabel(evento, usuarios) : ''
+  const standLabel = evento ? evento.proyectos.map(p => p.nombreStand?.trim()).filter(Boolean).join(', ') : ''
 
   useEffect(() => {
     if (eventoId && !planillas.find(p => p.eventoId === eventoId)) {
@@ -555,7 +556,7 @@ export function PlanillaPage() {
   // Valores efectivos para el documento: override de la planilla si existe, sino los del proyecto
   const docInfo = {
     titulo: infoOverride?.titulo || evento?.titulo || '',
-    cliente: infoOverride?.cliente || clienteLabel,
+    stand: infoOverride?.stand || infoOverride?.cliente || standLabel,
     lugar: infoOverride?.lugar || evento?.lugar || '',
     responsable: infoOverride?.responsable || responsableLabel,
   }
@@ -579,6 +580,30 @@ export function PlanillaPage() {
     setActiveRenderId(id)
     setShowAddRender(false)
     setNewRenderNombre('')
+  }
+
+  // Pegar render desde el portapapeles (igual que en el detalle de piezas)
+  const handleRenderPaste = async () => {
+    if (!currentPlanilla) return
+    try {
+      const items = await navigator.clipboard.read()
+      for (const item of items) {
+        const imgType = item.types.find(t => t.startsWith('image/'))
+        if (!imgType) continue
+        const blob = await item.getType(imgType)
+        const { base64, w, h } = await compressImage(blob)
+        const id = addRenderToPlanilla(currentPlanilla.id, {
+          nombre: newRenderNombre.trim() || `Vista ${renders.length + 1}`,
+          imagen: base64, natW: w, natH: h,
+        })
+        setActiveRenderId(id)
+        setShowAddRender(false)
+        setNewRenderNombre('')
+        return
+      }
+    } catch {
+      // Permiso denegado o no hay imagen en el portapapeles
+    }
   }
 
   // Replace existing render image
@@ -613,12 +638,14 @@ export function PlanillaPage() {
     setExportando(true)
     try {
       const blob = await pdf(
-        <PlanillaPDF planilla={currentPlanilla} evento={evento} clienteLabel={clienteLabel} responsableLabel={responsableLabel} rendersPerPage={rendersPerPage} logoUrl={`${window.location.origin}${import.meta.env.BASE_URL}logo1.png`} />
+        <PlanillaPDF planilla={currentPlanilla} evento={evento} standLabel={standLabel} responsableLabel={responsableLabel} rendersPerPage={rendersPerPage} logoUrl={`${window.location.origin}${import.meta.env.BASE_URL}logo1.png`} />
       ).toBlob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `Planilla_Grafica_${evento.titulo.replace(/\s+/g, '_')}.pdf`
+      const standParaNombre = (infoOverride?.stand || infoOverride?.cliente || standLabel).trim()
+      const sufijoStand = standParaNombre ? `_${standParaNombre.replace(/\s+/g, '_')}` : ''
+      a.download = `Planilla_Grafica_${evento.titulo.replace(/\s+/g, '_')}${sufijoStand}.pdf`
       a.click()
       URL.revokeObjectURL(url)
     } finally {
@@ -815,6 +842,11 @@ export function PlanillaPage() {
               <Upload size={22} />
               <span className="text-xs">Seleccionar imagen del render</span>
             </button>
+            <button onClick={handleRenderPaste}
+              className="w-full flex items-center justify-center gap-2 py-2.5 border border-[var(--border)] hover:border-brand-500/50 rounded-lg cursor-pointer transition-colors text-gray-500 hover:text-brand-400">
+              <Clipboard size={15} />
+              <span className="text-xs">Pegar desde el portapapeles</span>
+            </button>
             <div className="bg-[var(--bg)] border border-[var(--border)] rounded-lg px-3 py-2.5">
               <p className="text-[11px] font-medium text-gray-400 mb-1">Especificaciones recomendadas</p>
               <ul className="text-[11px] text-gray-600 space-y-0.5">
@@ -849,8 +881,8 @@ export function PlanillaPage() {
       {/* Info edit modal */}
       {showInfoEdit && currentPlanilla && (
         <InfoEditModal
-          defaults={{ titulo: evento.titulo, cliente: clienteLabel || '—', lugar: evento.lugar || '—', responsable: responsableLabel || '—' }}
-          current={infoOverride || {}}
+          defaults={{ titulo: evento.titulo, stand: standLabel || '—', lugar: evento.lugar || '—', responsable: responsableLabel || '—' }}
+          current={{ titulo: infoOverride?.titulo, stand: infoOverride?.stand || infoOverride?.cliente, lugar: infoOverride?.lugar, responsable: infoOverride?.responsable }}
           onSave={data => updatePlanillaInfo(currentPlanilla.id, data)}
           onClose={() => setShowInfoEdit(false)}
         />
@@ -884,7 +916,7 @@ export function PlanillaPage() {
             </div>
           </div>
           <PDFViewer style={{ flex: 1, border: 'none' }}>
-            <PlanillaPDF planilla={currentPlanilla} evento={evento} clienteLabel={clienteLabel} responsableLabel={responsableLabel} rendersPerPage={rendersPerPage} logoUrl={`${window.location.origin}${import.meta.env.BASE_URL}logo1.png`} />
+            <PlanillaPDF planilla={currentPlanilla} evento={evento} standLabel={standLabel} responsableLabel={responsableLabel} rendersPerPage={rendersPerPage} logoUrl={`${window.location.origin}${import.meta.env.BASE_URL}logo1.png`} />
           </PDFViewer>
         </div>
       )}

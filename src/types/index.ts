@@ -126,7 +126,8 @@ export interface Pieza {
 
 export interface PlanillaInfoOverride {
   titulo?: string
-  cliente?: string
+  stand?: string
+  cliente?: string   // legacy: override viejo, se sigue leyendo como fallback de stand
   lugar?: string
   responsable?: string
 }

@@ -90,20 +90,20 @@ const S = StyleSheet.create({
 interface Props {
   planilla: PlanillaGrafica
   evento: Evento
-  clienteLabel?: string
+  standLabel?: string
   responsableLabel?: string
   rendersPerPage?: 1 | 2
   logoUrl?: string
 }
 
-export function PlanillaPDF({ planilla, evento, clienteLabel, responsableLabel, rendersPerPage = 1, logoUrl }: Props) {
+export function PlanillaPDF({ planilla, evento, standLabel, responsableLabel, rendersPerPage = 1, logoUrl }: Props) {
   const now = new Date().toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
   const piezas = planilla.piezas
   const ov = planilla.infoOverride
 
   // Título/cliente/lugar/responsable: usan el override de la planilla si existe, sino los del proyecto
   const docTitulo = ov?.titulo || evento.titulo
-  const docCliente = ov?.cliente || clienteLabel || '—'
+  const docStand = ov?.stand || ov?.cliente || standLabel || '—'
   const docLugar = ov?.lugar || evento.lugar || '—'
   const docResponsable = ov?.responsable || responsableLabel || '—'
 
@@ -127,7 +127,7 @@ export function PlanillaPDF({ planilla, evento, clienteLabel, responsableLabel, 
         </View>
       </View>
       <View style={S.infoRow}>
-        <View style={S.infoCell}><Text style={S.infoLabel}>cliente </Text><Text style={S.infoValue}>{docCliente}</Text></View>
+        <View style={S.infoCell}><Text style={S.infoLabel}>stand </Text><Text style={S.infoValue}>{docStand}</Text></View>
         <View style={S.infoCell}><Text style={S.infoLabel}>lugar </Text><Text style={S.infoValue}>{docLugar}</Text></View>
         <View style={S.infoCell}><Text style={S.infoLabel}>responsable </Text><Text style={S.infoValue}>{docResponsable}</Text></View>
       </View>
