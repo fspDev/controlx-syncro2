@@ -150,12 +150,13 @@ export function PlanillaPDF({ planilla, evento, standLabel, responsableLabel, re
 
   // ── Card layout helpers ────────────────────────────────────────────────────
   //
-  // Each piece card gets a width bucket based on its image aspect ratio:
-  //   'full'  → CW        (very wide, e.g. banners  >2.5:1)
-  //   'half'  → (CW-8)/2  (landscape 1.4:1 – 2.5:1)
-  //   'third' → (CW-16)/3 (portrait / square  <1.4:1, or no image)
-  //
-  // Cards are greedily packed into rows (column fractions must sum ≤ 1.0).
+  // El "tamaño" que elige el usuario (o el automático por aspecto) define un
+  // ancho y alto MÁXIMOS — la caja de la pieza se calcula siempre respetando
+  // la proporción real de la imagen dentro de ese máximo, así nunca queda
+  // más ancha/alta que la imagen y no aparecen franjas de fondo alrededor
+  // (lo que pasaba antes con objectFit:'contain' en una caja de tamaño fijo).
+  // Las piezas fluyen en un layout tipo mosaico (flexWrap), no en filas
+  // empaquetadas por fracción de ancho.
 
   const CARD_GAP = 8
   const W_FULL  = CW
@@ -163,6 +164,12 @@ export function PlanillaPDF({ planilla, evento, standLabel, responsableLabel, re
   const W_THIRD = (CW - CARD_GAP * 2) / 3
 
   type CardBucket = 'full' | 'half' | 'third'
+  const BUCKET_MAX_W: Record<CardBucket, number> = { full: W_FULL, half: W_HALF, third: W_THIRD }
+  // Alto máximo por tamaño — crece con el bucket elegido, pero es un techo
+  // de seguridad: si la imagen es angosta/vertical, el ancho se recalcula
+  // hacia abajo para no exceder este alto (evita cajas gigantes en una hoja).
+  const BUCKET_MAX_H: Record<CardBucket, number> = { third: 220, half: 320, full: 480 }
+
   const getBucket = (p: typeof piezas[0]): CardBucket => {
     // Override manual del usuario: manda sobre el cálculo automático
     if (p.tamanoDetalle && p.tamanoDetalle !== 'auto') return p.tamanoDetalle
@@ -173,42 +180,28 @@ export function PlanillaPDF({ planilla, evento, standLabel, responsableLabel, re
     if (r > 1.4) return 'half'
     return 'third'
   }
-  const bucketFraction: Record<CardBucket, number> = { full: 1, half: 0.5, third: 1 / 3 }
-  const bucketWidth:    Record<CardBucket, number> = { full: W_FULL, half: W_HALF, third: W_THIRD }
 
-  // Group pieces into rows
-  const cardRows: (typeof piezas)[] = []
-  let row: typeof piezas = []
-  let rowFrac = 0
-  for (const p of piezas) {
-    const frac = bucketFraction[getBucket(p)]
-    if (row.length > 0 && rowFrac + frac > 1.001) {
-      cardRows.push(row)
-      row = [p]
-      rowFrac = frac
-    } else {
-      row.push(p)
-      rowFrac += frac
-    }
-  }
-  if (row.length > 0) cardRows.push(row)
-
-  // Alto máximo de imagen por bucket — crece con el tamaño elegido, así "full"
-  // realmente agranda la captura (y no solo el ancho de la caja contenedora).
-  const bucketImgCap: Record<CardBucket, number> = { third: 150, half: 220, full: 380 }
-
-  // Render a single piece card at a given width
-  const PiezaCard = ({ p, cardW }: { p: typeof piezas[0]; cardW: number }) => {
+  // Caja final = la más grande que respeta la proporción real de la imagen
+  // sin superar ni el ancho ni el alto máximos del tamaño elegido.
+  const getCardBox = (p: typeof piezas[0]): { w: number; h: number } => {
     const bucket = getBucket(p)
+    const maxW = BUCKET_MAX_W[bucket]
+    const maxH = BUCKET_MAX_H[bucket]
     const aspect = p.imagenDetalleW && p.imagenDetalleH ? p.imagenDetalleW / p.imagenDetalleH : 16 / 9
-    // Cap image height so very tall portraits don't eat the page
-    const rawImgH = cardW / aspect
-    const imgH = Math.min(rawImgH, bucketImgCap[bucket])
+    let w = maxW
+    let h = w / aspect
+    if (h > maxH) { h = maxH; w = h * aspect }
+    return { w, h }
+  }
+
+  // Render a single piece card, con caja ajustada a su propia proporción
+  const PiezaCard = ({ p }: { p: typeof piezas[0] }) => {
+    const { w: cardW, h: imgH } = getCardBox(p)
 
     return (
       <View wrap={false} style={[S.card, { width: cardW }]}>
         {p.imagenDetalle ? (
-          <Image src={p.imagenDetalle} style={{ width: cardW, height: imgH, objectFit: 'contain', backgroundColor: '#f3f4f6' }} />
+          <Image src={p.imagenDetalle} style={{ width: cardW, height: imgH, objectFit: 'cover' }} />
         ) : (
           <View style={[S.cardImgEmpty, { width: cardW, height: 60 }]}>
             <Text style={S.cardImgEmptyText}>Sin imagen</Text>
@@ -358,14 +351,10 @@ export function PlanillaPDF({ planilla, evento, standLabel, responsableLabel, re
             <Text style={S.sectionTitle}>Detalle de piezas gráficas — {piezas.length} tipo{piezas.length !== 1 ? 's' : ''}</Text>
           </View>
 
-          {/* Adaptive card grid — one row at a time */}
-          <View style={{ paddingHorizontal: PH, paddingTop: 10, gap: CARD_GAP }}>
-            {cardRows.map((rowPiezas, ri) => (
-              <View key={ri} wrap={false} style={{ flexDirection: 'row', gap: CARD_GAP }}>
-                {rowPiezas.map(p => (
-                  <PiezaCard key={p.id} p={p} cardW={bucketWidth[getBucket(p)]} />
-                ))}
-              </View>
+          {/* Mosaico adaptable — cada pieza con su propia caja según su tamaño elegido */}
+          <View style={{ paddingHorizontal: PH, paddingTop: 10, flexDirection: 'row', flexWrap: 'wrap', gap: CARD_GAP }}>
+            {piezas.map(p => (
+              <PiezaCard key={p.id} p={p} />
             ))}
           </View>
 
