@@ -122,7 +122,11 @@ export interface Pieza {
   imagenDetalle?: string  // base64 of finished artwork
   imagenDetalleW?: number // natural pixel width of imagenDetalle
   imagenDetalleH?: number // natural pixel height of imagenDetalle
+  tamanoDetalle?: TamanoDetalle  // tamaño en el PDF; 'auto' o sin valor = según aspecto de la imagen
 }
+
+// Cuánto espacio ocupa la tarjeta de la pieza en el PDF (override manual)
+export type TamanoDetalle = 'auto' | 'third' | 'half' | 'full'
 
 export interface PlanillaInfoOverride {
   titulo?: string

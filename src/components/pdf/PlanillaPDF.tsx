@@ -164,6 +164,8 @@ export function PlanillaPDF({ planilla, evento, standLabel, responsableLabel, re
 
   type CardBucket = 'full' | 'half' | 'third'
   const getBucket = (p: typeof piezas[0]): CardBucket => {
+    // Override manual del usuario: manda sobre el cálculo automático
+    if (p.tamanoDetalle && p.tamanoDetalle !== 'auto') return p.tamanoDetalle
     const w = p.imagenDetalleW, h = p.imagenDetalleH
     if (!w || !h) return 'third'
     const r = w / h

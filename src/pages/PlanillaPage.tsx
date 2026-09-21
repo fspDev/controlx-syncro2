@@ -4,7 +4,7 @@ import { useAppStore } from '@/store/useAppStore'
 import { Button } from '@/components/ui/Button'
 import { pdf, PDFViewer } from '@react-pdf/renderer'
 import { PlanillaPDF } from '@/components/pdf/PlanillaPDF'
-import type { TipoPieza, Pieza, PlanillaRender } from '@/types'
+import type { TipoPieza, Pieza, PlanillaRender, TamanoDetalle } from '@/types'
 import { TIPO_LABEL, TIPO_PREFIX, TIPO_COLOR_HEX, SUBTIPOS } from '@/types'
 import { proyectoClientesLabel, proyectoResponsablesLabel } from '@/lib/utils'
 import { ArrowLeft, Plus, Trash2, Upload, ImagePlus, FileDown, Edit2, X, ChevronRight, Eye, RefreshCw, Clipboard } from 'lucide-react'
@@ -416,9 +416,17 @@ function RenderCanvas({ render, piezas, onCanvasClick, onMarcadorMove, onMarcado
 
 // ─── PiezaDetalleCard ─────────────────────────────────────────────────────────
 
-function PiezaDetalleCard({ pieza, vistas, onUpdateDetalle, onEdit, onDelete }: {
+const TAMANOS_DETALLE: { value: TamanoDetalle; label: string; title: string }[] = [
+  { value: 'auto', label: 'Auto', title: 'Automático según la imagen' },
+  { value: 'third', label: '⅓', title: 'Chico (un tercio del ancho)' },
+  { value: 'half', label: '½', title: 'Mediano (media página)' },
+  { value: 'full', label: '█', title: 'Grande (ancho completo)' },
+]
+
+function PiezaDetalleCard({ pieza, vistas, onUpdateDetalle, onSetTamano, onEdit, onDelete }: {
   pieza: Pieza; vistas: number
   onUpdateDetalle: (img: string, w: number, h: number) => void
+  onSetTamano: (t: TamanoDetalle) => void
   onEdit: () => void; onDelete: () => void
 }) {
   const fileRef = useRef<HTMLInputElement>(null)
@@ -504,6 +512,25 @@ function PiezaDetalleCard({ pieza, vistas, onUpdateDetalle, onEdit, onDelete }: 
           {vistas > 1 && (
             <p className="text-gray-600">Visible en {vistas} vistas</p>
           )}
+        </div>
+        {/* Tamaño en el PDF */}
+        <div className="pt-2 mt-2 border-t border-[var(--border-s)]">
+          <p className="text-[9px] text-gray-600 uppercase tracking-wider mb-1">Tamaño en PDF</p>
+          <div className="flex rounded-md overflow-hidden border border-[var(--border)]">
+            {TAMANOS_DETALLE.map(t => {
+              const active = (pieza.tamanoDetalle ?? 'auto') === t.value
+              return (
+                <button
+                  key={t.value}
+                  onClick={() => onSetTamano(t.value)}
+                  title={t.title}
+                  className={`flex-1 py-1 text-[10px] font-medium cursor-pointer transition-colors ${active ? 'bg-brand-500/20 text-brand-400' : 'text-gray-500 hover:text-gray-300 hover:bg-[var(--surface-2)]'}`}
+                >
+                  {t.label}
+                </button>
+              )
+            })}
+          </div>
         </div>
       </div>
     </div>
@@ -808,6 +835,7 @@ export function PlanillaPage() {
                 {piezas.map(p => (
                   <PiezaDetalleCard key={p.id} pieza={p} vistas={getVistas(p.id)}
                     onUpdateDetalle={(img, w, h) => currentPlanilla && updatePieza(currentPlanilla.id, p.id, { imagenDetalle: img, imagenDetalleW: w, imagenDetalleH: h })}
+                    onSetTamano={t => currentPlanilla && updatePieza(currentPlanilla.id, p.id, { tamanoDetalle: t })}
                     onEdit={() => setEditingPiezaId(p.id)}
                     onDelete={() => {
                       if (currentPlanilla) removePieza(currentPlanilla.id, p.id)
