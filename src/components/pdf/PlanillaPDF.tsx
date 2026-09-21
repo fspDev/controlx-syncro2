@@ -193,13 +193,17 @@ export function PlanillaPDF({ planilla, evento, standLabel, responsableLabel, re
   }
   if (row.length > 0) cardRows.push(row)
 
+  // Alto máximo de imagen por bucket — crece con el tamaño elegido, así "full"
+  // realmente agranda la captura (y no solo el ancho de la caja contenedora).
+  const bucketImgCap: Record<CardBucket, number> = { third: 150, half: 220, full: 380 }
+
   // Render a single piece card at a given width
   const PiezaCard = ({ p, cardW }: { p: typeof piezas[0]; cardW: number }) => {
     const bucket = getBucket(p)
     const aspect = p.imagenDetalleW && p.imagenDetalleH ? p.imagenDetalleW / p.imagenDetalleH : 16 / 9
     // Cap image height so very tall portraits don't eat the page
     const rawImgH = cardW / aspect
-    const imgH = Math.min(rawImgH, bucket === 'full' ? 220 : 160)
+    const imgH = Math.min(rawImgH, bucketImgCap[bucket])
 
     return (
       <View wrap={false} style={[S.card, { width: cardW }]}>
